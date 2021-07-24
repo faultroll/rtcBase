@@ -34,7 +34,7 @@ class MessageHandler {
   RTC_DISALLOW_COPY_AND_ASSIGN(MessageHandler);
 };
 
-// Helper class to facilitate executing a functor on a thread.
+/* // Helper class to facilitate executing a functor on a thread.
 template <class ReturnT, class FunctorT>
 class FunctorMessageHandler : public MessageHandler {
  public:
@@ -68,7 +68,7 @@ class FunctorMessageHandler<void, FunctorT> : public MessageHandler {
 
  private:
   FunctorT functor_;
-};
+}; */
 
 } // namespace rtc
 

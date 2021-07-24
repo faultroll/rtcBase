@@ -11,10 +11,14 @@
 #ifndef RTC_BASE_SOCKETFACTORY_H_
 #define RTC_BASE_SOCKETFACTORY_H_
 
-#include "rtc_base/asyncsocket.h"
-#include "rtc_base/socket.h"
+/* #include "rtc_base/asyncsocket.h"
+#include "rtc_base/socket.h" */
 
 namespace rtc {
+
+// Forward declaration
+class Socket;
+class AsyncSocket;
 
 class SocketFactory {
 public:

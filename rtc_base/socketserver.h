@@ -17,10 +17,10 @@
 namespace rtc {
 
 class MessageQueue;
-// Needs to be forward declared because there's a circular dependency between
+/* // Needs to be forward declared because there's a circular dependency between
 // NetworkMonitor and Thread.
 // TODO(deadbeef): Fix this.
-class NetworkBinderInterface;
+class NetworkBinderInterface; */
 
 // Provides the ability to wait for activity on a set of sockets.  The Thread
 // class provides a nice wrapper on a socket server.
@@ -46,7 +46,7 @@ class SocketServer : public SocketFactory {
   // Causes the current wait (if one is in progress) to wake up.
   virtual void WakeUp() = 0;
 
-  // A network binder will bind the created sockets to a network.
+  /* // A network binder will bind the created sockets to a network.
   // It is only used in PhysicalSocketServer.
   void set_network_binder(NetworkBinderInterface* binder) {
     network_binder_ = binder;
@@ -54,7 +54,7 @@ class SocketServer : public SocketFactory {
   NetworkBinderInterface* network_binder() const { return network_binder_; }
 
  private:
-  NetworkBinderInterface* network_binder_ = nullptr;
+  NetworkBinderInterface* network_binder_ = nullptr; */
 };
 
 }  // namespace rtc
