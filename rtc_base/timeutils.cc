@@ -27,7 +27,7 @@
 #endif
 
 #include "rtc_base/checks.h"
-#include "rtc_base/numerics/safe_conversions.h"
+/* #include "rtc_base/numerics/safe_conversions.h" */
 #include "rtc_base/timeutils.h"
 
 namespace rtc {
