@@ -11,11 +11,11 @@
 
 #include "rtc_base/atomicops.h"
 #include "rtc_base/checks.h"
-#include "rtc_base/logging.h"
+/* #include "rtc_base/logging.h" */
 #include "rtc_base/messagequeue.h"
-#include "rtc_base/stringencode.h"
-#include "rtc_base/thread.h"
-#include "rtc_base/trace_event.h"
+/* #include "rtc_base/stringencode.h" */
+/* #include "rtc_base/thread.h" */
+/* #include "rtc_base/trace_event.h" */
 
 namespace rtc {
 namespace {
@@ -124,7 +124,7 @@ void MessageQueueManager::ClearInternal(MessageHandler *handler) {
   }
 }
 
-void MessageQueueManager::ProcessAllMessageQueues() {
+/* void MessageQueueManager::ProcessAllMessageQueues() {
   if (!instance_) {
     return;
   }
@@ -169,7 +169,7 @@ void MessageQueueManager::ProcessAllMessageQueuesInternal() {
   while (AtomicOps::AcquireLoad(&queues_not_done) > 0) {
     rtc::Thread::Current()->ProcessMessages(0);
   }
-}
+} */
 
 //------------------------------------------------------------------
 // MessageQueue
@@ -219,7 +219,7 @@ void MessageQueue::DoDestroy() {
   // The signal is done from here to ensure
   // that it always gets called when the queue
   // is going away.
-  SignalQueueDestroyed();
+  /* SignalQueueDestroyed(); */
   MessageQueueManager::Remove(this);
   Clear(nullptr);
 
@@ -316,7 +316,7 @@ bool MessageQueue::Get(Message *pmsg, int cmsWait, bool process_io) {
         }
       }  // crit_ is released here.
 
-      // Log a warning for time-sensitive messages that we're late to deliver.
+      /* // Log a warning for time-sensitive messages that we're late to deliver.
       if (pmsg->ts_sensitive) {
         int64_t delay = TimeDiff(msCurrent, pmsg->ts_sensitive);
         if (delay > 0) {
@@ -324,7 +324,7 @@ bool MessageQueue::Get(Message *pmsg, int cmsWait, bool process_io) {
               << "id: " << pmsg->message_id
               << "  delay: " << (delay + kMaxMsgLatency) << "ms";
         }
-      }
+      } */
       // If this was a dispose message, delete it and skip it.
       if (MQID_DISPOSE == pmsg->message_id) {
         RTC_DCHECK(nullptr == pmsg->phandler);
@@ -406,7 +406,7 @@ void MessageQueue::PostDelayed(const Location& posted_from,
                      pdata);
 }
 
-void MessageQueue::PostAt(const Location& posted_from,
+/* void MessageQueue::PostAt(const Location& posted_from,
                           uint32_t tstamp,
                           MessageHandler* phandler,
                           uint32_t id,
@@ -414,7 +414,7 @@ void MessageQueue::PostAt(const Location& posted_from,
   // This should work even if it is used (unexpectedly).
   int64_t delay = static_cast<uint32_t>(TimeMillis()) - tstamp;
   return DoDelayPost(posted_from, delay, tstamp, phandler, id, pdata);
-}
+} */
 
 void MessageQueue::PostAt(const Location& posted_from,
                           int64_t tstamp,
@@ -524,18 +524,18 @@ void MessageQueue::Clear(MessageHandler* phandler,
 }
 
 void MessageQueue::Dispatch(Message *pmsg) {
-  TRACE_EVENT2("webrtc", "MessageQueue::Dispatch", "src_file_and_line",
+  /* TRACE_EVENT2("webrtc", "MessageQueue::Dispatch", "src_file_and_line",
                pmsg->posted_from.file_and_line(), "src_func",
-               pmsg->posted_from.function_name());
+               pmsg->posted_from.function_name()); */
   int64_t start_time = TimeMillis();
   pmsg->phandler->OnMessage(pmsg);
   int64_t end_time = TimeMillis();
   int64_t diff = TimeDiff(end_time, start_time);
-  if (diff >= kSlowDispatchLoggingThreshold) {
+  /* if (diff >= kSlowDispatchLoggingThreshold) {
     RTC_LOG(LS_INFO) << "Message took " << diff
                      << "ms to dispatch. Posted from: "
                      << pmsg->posted_from.ToString();
-  }
+  } */
 }
 
 }  // namespace rtc

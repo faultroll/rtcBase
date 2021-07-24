@@ -20,13 +20,13 @@
 #include <utility>
 #include <vector>
 
-#include "rtc_base/basictypes.h"
+/* #include "rtc_base/basictypes.h" */
 #include "rtc_base/constructormagic.h"
 #include "rtc_base/criticalsection.h"
 #include "rtc_base/location.h"
 #include "rtc_base/messagehandler.h"
-#include "rtc_base/scoped_ref_ptr.h"
-#include "rtc_base/sigslot.h"
+/* #include "rtc_base/scoped_ref_ptr.h"
+#include "rtc_base/sigslot.h" */
 #include "rtc_base/socketserver.h"
 #include "rtc_base/thread_annotations.h"
 #include "rtc_base/timeutils.h"
@@ -50,10 +50,10 @@ class MessageQueueManager {
   // MessageQueueManager instance when necessary.
   static bool IsInitialized();
 
-  // Mainly for testing purposes, for use with a simulated clock.
+  /* // Mainly for testing purposes, for use with a simulated clock.
   // Ensures that all message queues have processed delayed messages
   // up until the current point in time.
-  static void ProcessAllMessageQueues();
+  static void ProcessAllMessageQueues(); */
 
  private:
   static MessageQueueManager* Instance();
@@ -64,7 +64,7 @@ class MessageQueueManager {
   void AddInternal(MessageQueue *message_queue);
   void RemoveInternal(MessageQueue *message_queue);
   void ClearInternal(MessageHandler *handler);
-  void ProcessAllMessageQueuesInternal();
+  /* void ProcessAllMessageQueuesInternal(); */
 
   static MessageQueueManager* instance_;
   // This list contains all live MessageQueues.
@@ -86,7 +86,7 @@ class MessageData {
   virtual ~MessageData() {}
 };
 
-template <class T>
+/* template <class T>
 class TypedMessageData : public MessageData {
  public:
   explicit TypedMessageData(const T& data) : data_(data) { }
@@ -147,7 +147,7 @@ class DisposeData : public MessageData {
   virtual ~DisposeData() { delete data_; }
  private:
   T* data_;
-};
+}; */
 
 const uint32_t MQID_ANY = static_cast<uint32_t>(-1);
 const uint32_t MQID_DISPOSE = static_cast<uint32_t>(-2);
@@ -248,12 +248,12 @@ class MessageQueue {
                       MessageHandler* phandler,
                       uint32_t id = 0,
                       MessageData* pdata = nullptr);
-  // TODO(honghaiz): Remove this when all the dependencies are removed.
+  /* // TODO(honghaiz): Remove this when all the dependencies are removed.
   virtual void PostAt(const Location& posted_from,
                       uint32_t tstamp,
                       MessageHandler* phandler,
                       uint32_t id = 0,
-                      MessageData* pdata = nullptr);
+                      MessageData* pdata = nullptr); */
   virtual void Clear(MessageHandler* phandler,
                      uint32_t id = MQID_ANY,
                      MessageList* removed = nullptr);
@@ -269,16 +269,16 @@ class MessageQueue {
     return msgq_.size() + dmsgq_.size() + (fPeekKeep_ ? 1u : 0u);
   }
 
-  // Internally posts a message which causes the doomed object to be deleted
+  /* // Internally posts a message which causes the doomed object to be deleted
   template<class T> void Dispose(T* doomed) {
     if (doomed) {
       Post(RTC_FROM_HERE, nullptr, MQID_DISPOSE, new DisposeData<T>(doomed));
     }
-  }
+  } */
 
-  // When this signal is sent out, any references to this queue should
+  /* // When this signal is sent out, any references to this queue should
   // no longer be used.
-  sigslot::signal0<> SignalQueueDestroyed;
+  sigslot::signal0<> SignalQueueDestroyed; */
 
  protected:
   class PriorityQueue : public std::priority_queue<DelayedMessage> {

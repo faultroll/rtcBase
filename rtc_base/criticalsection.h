@@ -35,9 +35,9 @@
 // See notes in the 'Performance' unit test for the effects of this flag.
 #define USE_NATIVE_MUTEX_ON_MAC 0
 
-#if defined(WEBRTC_MAC) && !USE_NATIVE_MUTEX_ON_MAC
+/* #if defined(WEBRTC_MAC) && !USE_NATIVE_MUTEX_ON_MAC
 #include <dispatch/dispatch.h>
-#endif
+#endif */
 
 #define CS_DEBUG_CHECKS RTC_DCHECK_IS_ON
 
@@ -68,7 +68,7 @@ class RTC_LOCKABLE CriticalSection {
 #if defined(WEBRTC_WIN)
   mutable CRITICAL_SECTION crit_;
 #elif defined(WEBRTC_POSIX)
-# if defined(WEBRTC_MAC) && !USE_NATIVE_MUTEX_ON_MAC
+/* # if defined(WEBRTC_MAC) && !USE_NATIVE_MUTEX_ON_MAC
   // Number of times the lock has been locked + number of threads waiting.
   // TODO(tommi): We could use this number and subtract the recursion count
   // to find places where we have multiple threads contending on the same lock.
@@ -80,9 +80,9 @@ class RTC_LOCKABLE CriticalSection {
   mutable dispatch_semaphore_t semaphore_;
   // The thread that currently holds the lock. Required to handle recursion.
   mutable PlatformThreadRef owning_thread_;
-# else
+# else */
   mutable pthread_mutex_t mutex_;
-# endif
+/* # endif */
   mutable PlatformThreadRef thread_;  // Only used by RTC_DCHECKs.
   mutable int recursion_count_;       // Only used by RTC_DCHECKs.
 #else  // !defined(WEBRTC_WIN) && !defined(WEBRTC_POSIX)

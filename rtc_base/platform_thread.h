@@ -16,14 +16,14 @@
 #include "rtc_base/constructormagic.h"
 #include "rtc_base/event.h"
 #include "rtc_base/platform_thread_types.h"
-#include "rtc_base/thread_checker.h"
+/* #include "rtc_base/thread_checker.h" */
 
 namespace rtc {
 
 // Callback function that the spawned thread will enter once spawned.
 // A return value of false is interpreted as that the function has no
 // more work to do and that the thread can be released.
-typedef bool (*ThreadRunFunctionDeprecated)(void*);
+/* typedef bool (*ThreadRunFunctionDeprecated)(void*); */
 typedef void (*ThreadRunFunction)(void*);
 
 enum ThreadPriority {
@@ -47,9 +47,9 @@ enum ThreadPriority {
 // called from the same thread, including instantiation.
 class PlatformThread {
  public:
-  PlatformThread(ThreadRunFunctionDeprecated func,
+  /* PlatformThread(ThreadRunFunctionDeprecated func,
                  void* obj,
-                 const char* thread_name);
+                 const char* thread_name); */
   PlatformThread(ThreadRunFunction func,
                  void* obj,
                  const char* thread_name,
@@ -84,15 +84,15 @@ class PlatformThread {
  private:
   void Run();
 
-  ThreadRunFunctionDeprecated const run_function_deprecated_ = nullptr;
+  /* ThreadRunFunctionDeprecated const run_function_deprecated_ = nullptr; */
   ThreadRunFunction const run_function_ = nullptr;
   const ThreadPriority priority_ = kNormalPriority;
   void* const obj_;
   // TODO(pbos): Make sure call sites use string literals and update to a const
   // char* instead of a std::string.
   const std::string name_;
-  rtc::ThreadChecker thread_checker_;
-  rtc::ThreadChecker spawned_thread_checker_;
+  /* rtc::ThreadChecker thread_checker_;
+  rtc::ThreadChecker spawned_thread_checker_; */
 #if defined(WEBRTC_WIN)
   static DWORD WINAPI StartThread(void* param);
 

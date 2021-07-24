@@ -1,18 +1,25 @@
 
-prfx ?= 
+prfx   ?= 
 cxx    := $(prfx)g++
 ar     := $(prfx)ar
 ranlib := $(prfx)ranlib
 strip  := $(prfx)strip
 
 # only three macros
-name := rtcThread
-srcs := $(wildcard rtc_base/*.cc)
-objs := $(patsubst %.cc,%.o,$(filter %.cc, $(srcs)))
-deps := $(patsubst %.o,%.d,$(objs))
-libs := -lpthread
+name    := rtcThread
+srcs    := $(wildcard rtc_base/*.cc)
+objs    := $(patsubst %.cc,%.o,$(filter %.cc, $(srcs)))
+deps    := $(patsubst %.o,%.d,$(objs))
+libs    := -lpthread
 cflags  := -I. -DNDEBUG -DWEBRTC_POSIX # -DWEBRTC_WIN
 ldflags := 
+
+targets := lib$(name).so lib$(name).a
+all : $(targets)
+
+clean : 
+	rm -f $(targets)
+	rm -f $(objs) $(deps)
 
 lib$(name).so : $(objs)
 	@$(cxx) -shared -Wl,--gc-sections -Wl,--as-needed -Wl,--export-dynamic $(ldflags) $^ -o $@ $(libs)

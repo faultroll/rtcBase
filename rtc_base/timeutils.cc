@@ -12,9 +12,9 @@
 
 #if defined(WEBRTC_POSIX)
 #include <sys/time.h>
-#if defined(WEBRTC_MAC)
+/* #if defined(WEBRTC_MAC)
 #include <mach/mach_time.h>
-#endif
+#endif */
 #endif
 
 #if defined(WEBRTC_WIN)
@@ -46,7 +46,7 @@ ClockInterface* GetClockForTesting() {
 
 int64_t SystemTimeNanos() {
   int64_t ticks;
-#if defined(WEBRTC_MAC)
+#if /* defined(WEBRTC_MAC)
   static mach_timebase_info_data_t timebase;
   if (timebase.denom == 0) {
     // Get the timebase if this is the first time we run.
@@ -63,7 +63,7 @@ int64_t SystemTimeNanos() {
     return rtc::dchecked_cast<int64_t>(a * b);
   };
   ticks = mul(mach_absolute_time(), timebase.numer) / timebase.denom;
-#elif defined(WEBRTC_POSIX)
+#elif */ defined(WEBRTC_POSIX)
   struct timespec ts;
   // TODO(deadbeef): Do we need to handle the case when CLOCK_MONOTONIC is not
   // supported?

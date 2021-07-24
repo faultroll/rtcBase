@@ -14,9 +14,9 @@
 #if defined(WEBRTC_WIN)
 #include <winsock2.h>
 #include <windows.h>
-#elif defined(WEBRTC_FUCHSIA)
+/* #elif defined(WEBRTC_FUCHSIA)
 #include <zircon/types.h>
-#include <zircon/process.h>
+#include <zircon/process.h> */
 #elif defined(WEBRTC_POSIX)
 #include <pthread.h>
 #include <unistd.h>
@@ -26,9 +26,9 @@ namespace rtc {
 #if defined(WEBRTC_WIN)
 typedef DWORD PlatformThreadId;
 typedef DWORD PlatformThreadRef;
-#elif defined(WEBRTC_FUCHSIA)
+/* #elif defined(WEBRTC_FUCHSIA)
 typedef zx_handle_t PlatformThreadId;
-typedef zx_handle_t PlatformThreadRef;
+typedef zx_handle_t PlatformThreadRef; */
 #elif defined(WEBRTC_POSIX)
 typedef pid_t PlatformThreadId;
 typedef pthread_t PlatformThreadRef;

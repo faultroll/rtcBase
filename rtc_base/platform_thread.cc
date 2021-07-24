@@ -13,12 +13,12 @@
 #include "rtc_base/atomicops.h"
 #include "rtc_base/checks.h"
 #include "rtc_base/timeutils.h"
-#include "rtc_base/trace_event.h"
+/* #include "rtc_base/trace_event.h" */
 
-#if defined(WEBRTC_LINUX)
+/* #if defined(WEBRTC_LINUX)
 #include <sys/prctl.h>
 #include <sys/syscall.h>
-#endif
+#endif */
 
 namespace rtc {
 namespace {
@@ -36,7 +36,7 @@ struct ThreadAttributes {
 #endif  // defined(WEBRTC_WIN)
 }
 
-PlatformThread::PlatformThread(ThreadRunFunctionDeprecated func,
+/* PlatformThread::PlatformThread(ThreadRunFunctionDeprecated func,
                                void* obj,
                                const char* thread_name)
     : run_function_deprecated_(func),
@@ -45,7 +45,7 @@ PlatformThread::PlatformThread(ThreadRunFunctionDeprecated func,
   RTC_DCHECK(func);
   RTC_DCHECK(name_.length() < 64);
   spawned_thread_checker_.DetachFromThread();
-}
+} */
 
 PlatformThread::PlatformThread(ThreadRunFunction func,
                                void* obj,
@@ -56,11 +56,11 @@ PlatformThread::PlatformThread(ThreadRunFunction func,
   RTC_DCHECK(!name_.empty());
   // TODO(tommi): Consider lowering the limit to 15 (limit on Linux).
   RTC_DCHECK(name_.length() < 64);
-  spawned_thread_checker_.DetachFromThread();
+  /* spawned_thread_checker_.DetachFromThread(); */
 }
 
 PlatformThread::~PlatformThread() {
-  RTC_DCHECK(thread_checker_.CalledOnValidThread());
+  /* RTC_DCHECK(thread_checker_.CalledOnValidThread()); */
 #if defined(WEBRTC_WIN)
   RTC_DCHECK(!thread_);
   RTC_DCHECK(!thread_id_);
@@ -85,7 +85,7 @@ void* PlatformThread::StartThread(void* param) {
 #endif  // defined(WEBRTC_WIN)
 
 void PlatformThread::Start() {
-  RTC_DCHECK(thread_checker_.CalledOnValidThread());
+  /* RTC_DCHECK(thread_checker_.CalledOnValidThread()); */
   RTC_DCHECK(!thread_) << "Thread already started?";
 #if defined(WEBRTC_WIN)
   stop_ = false;
@@ -106,7 +106,7 @@ void PlatformThread::Start() {
 }
 
 bool PlatformThread::IsRunning() const {
-  RTC_DCHECK(thread_checker_.CalledOnValidThread());
+  /* RTC_DCHECK(thread_checker_.CalledOnValidThread()); */
 #if defined(WEBRTC_WIN)
   return thread_ != nullptr;
 #else
@@ -123,7 +123,7 @@ PlatformThreadRef PlatformThread::GetThreadRef() const {
 }
 
 void PlatformThread::Stop() {
-  RTC_DCHECK(thread_checker_.CalledOnValidThread());
+  /* RTC_DCHECK(thread_checker_.CalledOnValidThread()); */
   if (!IsRunning())
     return;
 
@@ -144,7 +144,7 @@ void PlatformThread::Stop() {
     AtomicOps::ReleaseStore(&stop_flag_, 0);
   thread_ = 0;
 #endif  // defined(WEBRTC_WIN)
-  spawned_thread_checker_.DetachFromThread();
+  /* spawned_thread_checker_.DetachFromThread(); */
 }
 
 // TODO(tommi): Deprecate the loop behavior in PlatformThread.
@@ -156,7 +156,7 @@ void PlatformThread::Stop() {
 // and encouraging a busy polling loop, can be costly in terms of power and cpu.
 void PlatformThread::Run() {
   // Attach the worker thread checker to this thread.
-  RTC_DCHECK(spawned_thread_checker_.CalledOnValidThread());
+  /* RTC_DCHECK(spawned_thread_checker_.CalledOnValidThread()); */
   rtc::SetCurrentThreadName(name_.c_str());
 
   if (run_function_) {
@@ -178,13 +178,13 @@ void PlatformThread::Run() {
 #endif
 
   do {
-    TRACE_EVENT1("webrtc", "PlatformThread::Run", "name", name_.c_str());
+    /* TRACE_EVENT1("webrtc", "PlatformThread::Run", "name", name_.c_str()); */
 
     // The interface contract of Start/Stop is that for a successful call to
     // Start, there should be at least one call to the run function.  So we
     // call the function before checking |stop_|.
-    if (!run_function_deprecated_(obj_))
-      break;
+    /* if (!run_function_deprecated_(obj_))
+      break; */
 #if RTC_DCHECK_IS_ON
     auto id = sequence_nr % kMaxLoopCount;
     loop_stamps[id] = rtc::TimeMillis();
@@ -206,12 +206,12 @@ void PlatformThread::Run() {
     SleepEx(0, true);
   } while (!stop_);
 #else
-#if defined(WEBRTC_MAC) || defined(WEBRTC_ANDROID)
+/* #if defined(WEBRTC_MAC) || defined(WEBRTC_ANDROID)
     sched_yield();
-#else
+#else */
     static const struct timespec ts_null = {0};
     nanosleep(&ts_null, nullptr);
-#endif
+/* #endif */
   } while (!AtomicOps::AcquireLoad(&stop_flag_));
 #endif  // defined(WEBRTC_WIN)
 }
@@ -221,31 +221,31 @@ bool PlatformThread::SetPriority(ThreadPriority priority) {
   if (run_function_) {
     // The non-deprecated way of how this function gets called, is that it must
     // be called on the worker thread itself.
-    RTC_DCHECK(!thread_checker_.CalledOnValidThread());
-    RTC_DCHECK(spawned_thread_checker_.CalledOnValidThread());
+    /* RTC_DCHECK(!thread_checker_.CalledOnValidThread());
+    RTC_DCHECK(spawned_thread_checker_.CalledOnValidThread()); */
   } else {
     // In the case of deprecated use of this method, it must be called on the
     // same thread as the PlatformThread object is constructed on.
-    RTC_DCHECK(thread_checker_.CalledOnValidThread());
+    /* RTC_DCHECK(thread_checker_.CalledOnValidThread()); */
     RTC_DCHECK(IsRunning());
   }
 #endif
 
 #if defined(WEBRTC_WIN)
   return SetThreadPriority(thread_, priority) != FALSE;
-#elif defined(__native_client__) || defined(WEBRTC_FUCHSIA)
+/* #elif defined(__native_client__) || defined(WEBRTC_FUCHSIA)
   // Setting thread priorities is not supported in NaCl or Fuchsia.
   return true;
 #elif defined(WEBRTC_CHROMIUM_BUILD) && defined(WEBRTC_LINUX)
   // TODO(tommi): Switch to the same mechanism as Chromium uses for changing
   // thread priorities.
-  return true;
+  return true; */
 #else
-#ifdef WEBRTC_THREAD_RR
+/* #ifdef WEBRTC_THREAD_RR */
   const int policy = SCHED_RR;
-#else
+/* #else
   const int policy = SCHED_FIFO;
-#endif
+#endif */
   const int min_prio = sched_get_priority_min(policy);
   const int max_prio = sched_get_priority_max(policy);
   if (min_prio == -1 || max_prio == -1) {
@@ -284,7 +284,7 @@ bool PlatformThread::SetPriority(ThreadPriority priority) {
 
 #if defined(WEBRTC_WIN)
 bool PlatformThread::QueueAPC(PAPCFUNC function, ULONG_PTR data) {
-  RTC_DCHECK(thread_checker_.CalledOnValidThread());
+  /* RTC_DCHECK(thread_checker_.CalledOnValidThread()); */
   RTC_DCHECK(IsRunning());
 
   return QueueUserAPC(function, thread_, data) != FALSE;

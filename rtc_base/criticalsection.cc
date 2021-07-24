@@ -21,18 +21,18 @@ CriticalSection::CriticalSection() {
 #if defined(WEBRTC_WIN)
   InitializeCriticalSection(&crit_);
 #elif defined(WEBRTC_POSIX)
-# if defined(WEBRTC_MAC) && !USE_NATIVE_MUTEX_ON_MAC
+/* # if defined(WEBRTC_MAC) && !USE_NATIVE_MUTEX_ON_MAC
   lock_queue_ = 0;
   owning_thread_ = 0;
   recursion_ = 0;
   semaphore_ = dispatch_semaphore_create(0);
-# else
+# else */
   pthread_mutexattr_t mutex_attribute;
   pthread_mutexattr_init(&mutex_attribute);
   pthread_mutexattr_settype(&mutex_attribute, PTHREAD_MUTEX_RECURSIVE);
   pthread_mutex_init(&mutex_, &mutex_attribute);
   pthread_mutexattr_destroy(&mutex_attribute);
-# endif
+/* # endif */
   CS_DEBUG_CODE(thread_ = 0);
   CS_DEBUG_CODE(recursion_count_ = 0);
   RTC_UNUSED(thread_);
@@ -46,11 +46,11 @@ CriticalSection::~CriticalSection() {
 #if defined(WEBRTC_WIN)
   DeleteCriticalSection(&crit_);
 #elif defined(WEBRTC_POSIX)
-# if defined(WEBRTC_MAC) && !USE_NATIVE_MUTEX_ON_MAC
+/* # if defined(WEBRTC_MAC) && !USE_NATIVE_MUTEX_ON_MAC
   dispatch_release(semaphore_);
-# else
+# else */
   pthread_mutex_destroy(&mutex_);
-# endif
+/* # endif */
 #else
 # error Unsupported platform.
 #endif
@@ -60,7 +60,7 @@ void CriticalSection::Enter() const RTC_EXCLUSIVE_LOCK_FUNCTION() {
 #if defined(WEBRTC_WIN)
   EnterCriticalSection(&crit_);
 #elif defined(WEBRTC_POSIX)
-# if defined(WEBRTC_MAC) && !USE_NATIVE_MUTEX_ON_MAC
+/* # if defined(WEBRTC_MAC) && !USE_NATIVE_MUTEX_ON_MAC
   int spin = 3000;
   PlatformThreadRef self = CurrentThreadRef();
   bool have_lock = false;
@@ -97,9 +97,9 @@ void CriticalSection::Enter() const RTC_EXCLUSIVE_LOCK_FUNCTION() {
   owning_thread_ = self;
   ++recursion_;
 
-# else
+# else */
   pthread_mutex_lock(&mutex_);
-# endif
+/* # endif */
 
 # if CS_DEBUG_CHECKS
   if (!recursion_count_) {
@@ -119,7 +119,7 @@ bool CriticalSection::TryEnter() const RTC_EXCLUSIVE_TRYLOCK_FUNCTION(true) {
 #if defined(WEBRTC_WIN)
   return TryEnterCriticalSection(&crit_) != FALSE;
 #elif defined(WEBRTC_POSIX)
-# if defined(WEBRTC_MAC) && !USE_NATIVE_MUTEX_ON_MAC
+/* # if defined(WEBRTC_MAC) && !USE_NATIVE_MUTEX_ON_MAC
   if (!IsThreadRefEqual(owning_thread_, CurrentThreadRef())) {
     if (AtomicOps::CompareAndSwap(&lock_queue_, 0, 1) != 0)
       return false;
@@ -129,10 +129,10 @@ bool CriticalSection::TryEnter() const RTC_EXCLUSIVE_TRYLOCK_FUNCTION(true) {
     AtomicOps::Increment(&lock_queue_);
   }
   ++recursion_;
-# else
+# else */
   if (pthread_mutex_trylock(&mutex_) != 0)
     return false;
-# endif
+/* # endif */
 # if CS_DEBUG_CHECKS
   if (!recursion_count_) {
     RTC_DCHECK(!thread_);
@@ -159,7 +159,7 @@ void CriticalSection::Leave() const RTC_UNLOCK_FUNCTION() {
   if (!recursion_count_)
     thread_ = 0;
 # endif
-# if defined(WEBRTC_MAC) && !USE_NATIVE_MUTEX_ON_MAC
+/* # if defined(WEBRTC_MAC) && !USE_NATIVE_MUTEX_ON_MAC
   RTC_DCHECK(IsThreadRefEqual(owning_thread_, CurrentThreadRef()));
   RTC_DCHECK_GE(recursion_, 0);
   --recursion_;
@@ -168,9 +168,9 @@ void CriticalSection::Leave() const RTC_UNLOCK_FUNCTION() {
 
   if (AtomicOps::Decrement(&lock_queue_) > 0 && !recursion_)
     dispatch_semaphore_signal(semaphore_);
-# else
+# else */
   pthread_mutex_unlock(&mutex_);
-# endif
+/* # endif */
 #else
 # error Unsupported platform.
 #endif
@@ -216,15 +216,15 @@ bool TryCritScope::locked() const {
 }
 
 void GlobalLockPod::Lock() {
-#if !defined(WEBRTC_WIN) && (!defined(WEBRTC_MAC) || USE_NATIVE_MUTEX_ON_MAC)
+#if !defined(WEBRTC_WIN) /* && (!defined(WEBRTC_MAC) || USE_NATIVE_MUTEX_ON_MAC) */
   const struct timespec ts_null = {0};
 #endif
 
   while (AtomicOps::CompareAndSwap(&lock_acquired, 0, 1)) {
 #if defined(WEBRTC_WIN)
     ::Sleep(0);
-#elif defined(WEBRTC_MAC) && !USE_NATIVE_MUTEX_ON_MAC
-    sched_yield();
+/* #elif defined(WEBRTC_MAC) && !USE_NATIVE_MUTEX_ON_MAC
+    sched_yield(); */
 #else
     nanosleep(&ts_null, nullptr);
 #endif
