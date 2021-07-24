@@ -1,0 +1,3 @@
+# do not trace build dirs
+*.d
+*.o
