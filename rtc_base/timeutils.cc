@@ -27,43 +27,13 @@
 #endif
 
 #include "rtc_base/checks.h"
-/* #include "rtc_base/numerics/safe_conversions.h" */
 #include "rtc_base/timeutils.h"
 
 namespace rtc {
 
-ClockInterface* g_clock = nullptr;
-
-ClockInterface* SetClockForTesting(ClockInterface* clock) {
-  ClockInterface* prev = g_clock;
-  g_clock = clock;
-  return prev;
-}
-
-ClockInterface* GetClockForTesting() {
-  return g_clock;
-}
-
 int64_t SystemTimeNanos() {
   int64_t ticks;
-#if /* defined(WEBRTC_MAC)
-  static mach_timebase_info_data_t timebase;
-  if (timebase.denom == 0) {
-    // Get the timebase if this is the first time we run.
-    // Recommended by Apple's QA1398.
-    if (mach_timebase_info(&timebase) != KERN_SUCCESS) {
-      RTC_NOTREACHED();
-    }
-  }
-  // Use timebase to convert absolute time tick units into nanoseconds.
-  const auto mul = [](uint64_t a, uint32_t b) -> int64_t {
-    RTC_DCHECK_NE(b, 0);
-    RTC_DCHECK_LE(a, std::numeric_limits<int64_t>::max() / b)
-        << "The multiplication " << a << " * " << b << " overflows";
-    return rtc::dchecked_cast<int64_t>(a * b);
-  };
-  ticks = mul(mach_absolute_time(), timebase.numer) / timebase.denom;
-#elif */ defined(WEBRTC_POSIX)
+#if defined(WEBRTC_POSIX)
   struct timespec ts;
   // TODO(deadbeef): Do we need to handle the case when CLOCK_MONOTONIC is not
   // supported?
@@ -90,7 +60,7 @@ int64_t SystemTimeNanos() {
   // just wasting a multiply and divide when doing Time() on Windows.
   ticks = ticks * kNumNanosecsPerMillisec;
 #else
-#error Unsupported platform.
+# error Unsupported platform.
 #endif
   return ticks;
 }
@@ -100,9 +70,6 @@ int64_t SystemTimeMillis() {
 }
 
 int64_t TimeNanos() {
-  if (g_clock) {
-    return g_clock->TimeNanos();
-  }
   return SystemTimeNanos();
 }
 

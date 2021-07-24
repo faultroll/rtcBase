@@ -9,6 +9,7 @@
  */
 
 #include "rtc_base/platform_thread_types.h"
+#include "typedefs.h"  // NOLINT(build/include)
 
 /* #if defined(WEBRTC_LINUX)
 #include <sys/prctl.h>
@@ -21,35 +22,26 @@ PlatformThreadId CurrentThreadId() {
 #if defined(WEBRTC_WIN)
   return GetCurrentThreadId();
 #elif defined(WEBRTC_POSIX)
-/* #if defined(WEBRTC_MAC) || defined(WEBRTC_IOS)
-  return pthread_mach_thread_np(pthread_self());
-#elif defined(WEBRTC_ANDROID)
-  return gettid();
-#elif defined(WEBRTC_FUCHSIA)
-  return zx_thread_self();
-#elif defined(WEBRTC_LINUX)
+/* #if defined(WEBRTC_LINUX)
   return syscall(__NR_gettid);
-#else
-  // Default implementation for nacl and solaris. */
-  // error: invalid cast from type ‘pthread_t’ {aka ‘long unsigned int’} to type ‘pid_t’ {aka ‘int’}
+#else */
+  // TODO error: invalid cast from type ‘pthread_t’ {aka ‘long unsigned int’} to type ‘pid_t’ {aka ‘int’}
   // return reinterpret_cast<pid_t>(pthread_self());
-  return (pid_t)pthread_self();
+  return static_cast<pid_t>(pthread_self());
 /* #endif */
-#endif  // defined(WEBRTC_POSIX)
+#endif  // defined(WEBRTC_WIN)
 }
 
 PlatformThreadRef CurrentThreadRef() {
 #if defined(WEBRTC_WIN)
   return GetCurrentThreadId();
-/* #elif defined(WEBRTC_FUCHSIA)
-  return zx_thread_self(); */
 #elif defined(WEBRTC_POSIX)
   return pthread_self();
 #endif
 }
 
 bool IsThreadRefEqual(const PlatformThreadRef& a, const PlatformThreadRef& b) {
-#if defined(WEBRTC_WIN) /* || defined(WEBRTC_FUCHSIA) */
+#if defined(WEBRTC_WIN)
   return a == b;
 #elif defined(WEBRTC_POSIX)
   return pthread_equal(a, b);
@@ -70,11 +62,13 @@ void SetCurrentThreadName(const char* name) {
                      reinterpret_cast<ULONG_PTR*>(&threadname_info));
   } __except (EXCEPTION_EXECUTE_HANDLER) {  // NOLINT
   }
-/* #elif defined(WEBRTC_LINUX) || defined(WEBRTC_ANDROID)
+#elif defined(WEBRTC_POSIX)
+/* #if defined(WEBRTC_LINUX)
   prctl(PR_SET_NAME, reinterpret_cast<unsigned long>(name));  // NOLINT
-#elif defined(WEBRTC_MAC) || defined(WEBRTC_IOS)
-  pthread_setname_np(name); */
-#endif
+#else */
+  RTC_UNUSED(name);
+/* #endif */
+#endif  // defined(WEBRTC_WIN)
 }
 
 }  // namespace rtc

@@ -13,14 +13,11 @@
 
 #include <memory>
 #include "rtc_base/socketfactory.h"
+#include "typedefs.h"  // NOLINT(build/include)
 
 namespace rtc {
 
 class MessageQueue;
-/* // Needs to be forward declared because there's a circular dependency between
-// NetworkMonitor and Thread.
-// TODO(deadbeef): Fix this.
-class NetworkBinderInterface; */
 
 // Provides the ability to wait for activity on a set of sockets.  The Thread
 // class provides a nice wrapper on a socket server.
@@ -35,7 +32,7 @@ class SocketServer : public SocketFactory {
   // When the socket server is installed into a Thread, this function is
   // called to allow the socket server to use the thread's message queue for
   // any messaging that it might need to perform.
-  virtual void SetMessageQueue(MessageQueue* queue) {}
+  virtual void SetMessageQueue(MessageQueue* queue) { RTC_UNUSED(queue); }
 
   // Sleeps until:
   //  1) cms milliseconds have elapsed (unless cms == kForever)
@@ -45,16 +42,6 @@ class SocketServer : public SocketFactory {
 
   // Causes the current wait (if one is in progress) to wake up.
   virtual void WakeUp() = 0;
-
-  /* // A network binder will bind the created sockets to a network.
-  // It is only used in PhysicalSocketServer.
-  void set_network_binder(NetworkBinderInterface* binder) {
-    network_binder_ = binder;
-  }
-  NetworkBinderInterface* network_binder() const { return network_binder_; }
-
- private:
-  NetworkBinderInterface* network_binder_ = nullptr; */
 };
 
 }  // namespace rtc

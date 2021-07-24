@@ -83,7 +83,7 @@ namespace rtc {
 // Helper macro which avoids evaluating the arguments to a stream if
 // the condition doesn't hold.
 #define RTC_LAZY_STREAM(stream, condition)                                    \
-  !(condition) ? static_cast<void>(0) : rtc::FatalMessageVoidify() & (stream)
+  !(condition) ? RTC_UNUSED(0) : rtc::FatalMessageVoidify() & (stream)
 
 // The actual stream used isn't important. We reference |ignored| in the code
 // but don't evaluate it; this is to avoid "unused variable" warnings (we do so
@@ -92,7 +92,7 @@ namespace rtc {
 // condition being unused).
 #define RTC_EAT_STREAM_PARAMETERS(ignored) \
   (true ? true : ((void)(ignored), true))  \
-      ? static_cast<void>(0)               \
+      ? RTC_UNUSED(0)               \
       : rtc::FatalMessageVoidify() & rtc::FatalMessage("", 0).stream()
 
 // Call RTC_EAT_STREAM_PARAMETERS with an argument that fails to compile if

@@ -11,11 +11,7 @@
 
 #include "rtc_base/atomicops.h"
 #include "rtc_base/checks.h"
-/* #include "rtc_base/logging.h" */
 #include "rtc_base/messagequeue.h"
-/* #include "rtc_base/stringencode.h" */
-/* #include "rtc_base/thread.h" */
-/* #include "rtc_base/trace_event.h" */
 
 namespace rtc {
 namespace {
@@ -56,10 +52,6 @@ MessageQueueManager* MessageQueueManager::Instance() {
   if (!instance_)
     instance_ = new MessageQueueManager;
   return instance_;
-}
-
-bool MessageQueueManager::IsInitialized() {
-  return instance_ != nullptr;
 }
 
 MessageQueueManager::MessageQueueManager() : processing_(0) {}
@@ -124,53 +116,6 @@ void MessageQueueManager::ClearInternal(MessageHandler *handler) {
   }
 }
 
-/* void MessageQueueManager::ProcessAllMessageQueues() {
-  if (!instance_) {
-    return;
-  }
-  return Instance()->ProcessAllMessageQueuesInternal();
-}
-
-void MessageQueueManager::ProcessAllMessageQueuesInternal() {
-  // This works by posting a delayed message at the current time and waiting
-  // for it to be dispatched on all queues, which will ensure that all messages
-  // that came before it were also dispatched.
-  volatile int queues_not_done = 0;
-
-  // This class is used so that whether the posted message is processed, or the
-  // message queue is simply cleared, queues_not_done gets decremented.
-  class ScopedIncrement : public MessageData {
-   public:
-    ScopedIncrement(volatile int* value) : value_(value) {
-      AtomicOps::Increment(value_);
-    }
-    ~ScopedIncrement() override { AtomicOps::Decrement(value_); }
-
-   private:
-    volatile int* value_;
-  };
-
-  {
-    MarkProcessingCritScope cs(&crit_, &processing_);
-    for (MessageQueue* queue : message_queues_) {
-      if (!queue->IsProcessingMessages()) {
-        // If the queue is not processing messages, it can
-        // be ignored. If we tried to post a message to it, it would be dropped
-        // or ignored.
-        continue;
-      }
-      queue->PostDelayed(RTC_FROM_HERE, 0, nullptr, MQID_DISPOSE,
-                         new ScopedIncrement(&queues_not_done));
-    }
-  }
-  // Note: One of the message queues may have been on this thread, which is why
-  // we can't synchronously wait for queues_not_done to go to 0; we need to
-  // process messages as well.
-  while (AtomicOps::AcquireLoad(&queues_not_done) > 0) {
-    rtc::Thread::Current()->ProcessMessages(0);
-  }
-} */
-
 //------------------------------------------------------------------
 // MessageQueue
 MessageQueue::MessageQueue(SocketServer* ss, bool init_queue)
@@ -216,10 +161,6 @@ void MessageQueue::DoDestroy() {
   }
 
   fDestroyed_ = true;
-  // The signal is done from here to ensure
-  // that it always gets called when the queue
-  // is going away.
-  /* SignalQueueDestroyed(); */
   MessageQueueManager::Remove(this);
   Clear(nullptr);
 
@@ -316,15 +257,15 @@ bool MessageQueue::Get(Message *pmsg, int cmsWait, bool process_io) {
         }
       }  // crit_ is released here.
 
-      /* // Log a warning for time-sensitive messages that we're late to deliver.
+      // Log a warning for time-sensitive messages that we're late to deliver.
       if (pmsg->ts_sensitive) {
         int64_t delay = TimeDiff(msCurrent, pmsg->ts_sensitive);
         if (delay > 0) {
-          RTC_LOG_F(LS_WARNING)
+          /* RTC_LOG_F(LS_WARNING)
               << "id: " << pmsg->message_id
-              << "  delay: " << (delay + kMaxMsgLatency) << "ms";
+              << "  delay: " << (delay + kMaxMsgLatency) << "ms"; */
         }
-      } */
+      }
       // If this was a dispose message, delete it and skip it.
       if (MQID_DISPOSE == pmsg->message_id) {
         RTC_DCHECK(nullptr == pmsg->phandler);
@@ -405,16 +346,6 @@ void MessageQueue::PostDelayed(const Location& posted_from,
   return DoDelayPost(posted_from, cmsDelay, TimeAfter(cmsDelay), phandler, id,
                      pdata);
 }
-
-/* void MessageQueue::PostAt(const Location& posted_from,
-                          uint32_t tstamp,
-                          MessageHandler* phandler,
-                          uint32_t id,
-                          MessageData* pdata) {
-  // This should work even if it is used (unexpectedly).
-  int64_t delay = static_cast<uint32_t>(TimeMillis()) - tstamp;
-  return DoDelayPost(posted_from, delay, tstamp, phandler, id, pdata);
-} */
 
 void MessageQueue::PostAt(const Location& posted_from,
                           int64_t tstamp,
@@ -524,18 +455,15 @@ void MessageQueue::Clear(MessageHandler* phandler,
 }
 
 void MessageQueue::Dispatch(Message *pmsg) {
-  /* TRACE_EVENT2("webrtc", "MessageQueue::Dispatch", "src_file_and_line",
-               pmsg->posted_from.file_and_line(), "src_func",
-               pmsg->posted_from.function_name()); */
   int64_t start_time = TimeMillis();
   pmsg->phandler->OnMessage(pmsg);
   int64_t end_time = TimeMillis();
   int64_t diff = TimeDiff(end_time, start_time);
-  /* if (diff >= kSlowDispatchLoggingThreshold) {
-    RTC_LOG(LS_INFO) << "Message took " << diff
+  if (diff >= kSlowDispatchLoggingThreshold) {
+    /* RTC_LOG(LS_INFO) << "Message took " << diff
                      << "ms to dispatch. Posted from: "
-                     << pmsg->posted_from.ToString();
-  } */
+                     << pmsg->posted_from.ToString(); */
+  }
 }
 
 }  // namespace rtc

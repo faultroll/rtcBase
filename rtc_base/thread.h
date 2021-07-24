@@ -13,21 +13,12 @@
 
 #include <algorithm>
 #include <list>
-#include <memory>
 #include <string>
-#include <utility>
 #include <vector>
 
-#if defined(WEBRTC_POSIX)
-#include <pthread.h>
-#endif
 #include "rtc_base/constructormagic.h"
 #include "rtc_base/messagequeue.h"
-#include "rtc_base/platform_thread_types.h"
-
-#if defined(WEBRTC_WIN)
-#include "rtc_base/win32.h"
-#endif
+#include "rtc_base/platform_thread.h"
 
 namespace rtc {
 
@@ -122,19 +113,6 @@ class RTC_LOCKABLE Thread : public MessageQueue {
   static std::unique_ptr<Thread> Create();
   static Thread* Current();
 
-  // Used to catch performance regressions. Use this to disallow blocking calls
-  // (Invoke) for a given scope.  If a synchronous call is made while this is in
-  // effect, an assert will be triggered.
-  // Note that this is a single threaded class.
-  class ScopedDisallowBlockingCalls {
-   public:
-    ScopedDisallowBlockingCalls();
-    ~ScopedDisallowBlockingCalls();
-   private:
-    Thread* const thread_;
-    const bool previous_state_;
-  };
-
   bool IsCurrent() const;
 
   // Sleeps the calling thread for the specified number of milliseconds, during
@@ -166,7 +144,7 @@ class RTC_LOCKABLE Thread : public MessageQueue {
                     uint32_t id = 0,
                     MessageData* pdata = nullptr);
 
-  // Convenience method to invoke a functor on another thread.  Caller must
+  /* // Convenience method to invoke a functor on another thread.  Caller must
   // provide the |ReturnT| template argument, which cannot (easily) be deduced.
   // Uses Send() internally, which blocks the current thread until execution
   // is complete.
@@ -180,7 +158,7 @@ class RTC_LOCKABLE Thread : public MessageQueue {
         std::forward<FunctorT>(functor));
     InvokeInternal(posted_from, &handler);
     return handler.MoveResult();
-  }
+  } */
 
   // From MessageQueue
   void Clear(MessageHandler* phandler,
@@ -201,18 +179,6 @@ class RTC_LOCKABLE Thread : public MessageQueue {
   // You cannot call Start on non-owned threads.
   bool IsOwned();
 
-  // Expose private method IsRunning() for tests.
-  //
-  // DANGER: this is a terrible public API.  Most callers that might want to
-  // call this likely do not have enough control/knowledge of the Thread in
-  // question to guarantee that the returned value remains true for the duration
-  // of whatever code is conditionally executing because of the return value!
-  bool RunningForTest() { return IsRunning(); }
-
-  // Sets the per-thread allow-blocking-calls flag and returns the previous
-  // value. Must be called on this thread.
-  bool SetAllowBlockingCalls(bool allow);
-
   // These functions are public to avoid injecting test hooks. Don't call them
   // outside of tests.
   // This method should be called when thread is created using non standard
@@ -230,10 +196,6 @@ class RTC_LOCKABLE Thread : public MessageQueue {
 
   // Blocks the calling thread until this thread has terminated.
   void Join();
-
-  static void AssertBlockingIsAllowedOnCurrentThread();
-
-  friend class ScopedDisallowBlockingCalls;
 
  private:
   struct ThreadInit {
@@ -268,7 +230,7 @@ class RTC_LOCKABLE Thread : public MessageQueue {
   // Returns true if there is such a message.
   bool PopSendMessageFromThread(const Thread* source, _SendMessage* msg);
 
-  void InvokeInternal(const Location& posted_from, MessageHandler* handler);
+  /* void InvokeInternal(const Location& posted_from, MessageHandler* handler); */
 
   std::list<_SendMessage> sendlist_;
   std::string name_;

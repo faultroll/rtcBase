@@ -10,21 +10,11 @@
 
 #include "rtc_base/thread.h"
 
-#if defined(WEBRTC_WIN)
-#include <comdef.h>
-#elif defined(WEBRTC_POSIX)
-#include <time.h>
-#else
-#error "Either WEBRTC_WIN or WEBRTC_POSIX needs to be defined."
-#endif
-
 #include "rtc_base/checks.h"
-/* #include "rtc_base/logging.h" */
 #include "rtc_base/nullsocketserver.h"
 #include "rtc_base/platform_thread.h"
-/* #include "rtc_base/stringutils.h" */
 #include "rtc_base/timeutils.h"
-/* #include "rtc_base/trace_event.h" */
+#include "typedefs.h"  // NOLINT(build/include)
 
 namespace rtc {
 
@@ -38,39 +28,21 @@ ThreadManager::~ThreadManager() {
   RTC_NOTREACHED() << "ThreadManager should never be destructed.";
 }
 
-// static
-Thread* Thread::Current() {
-  ThreadManager* manager = ThreadManager::Instance();
-  Thread* thread = manager->CurrentThread();
-
-#ifndef NO_MAIN_THREAD_WRAPPING
-  // Only autowrap the thread which instantiated the ThreadManager.
-  if (!thread && manager->IsMainThread()) {
-    thread = new Thread(SocketServer::CreateDefault());
-    thread->WrapCurrentWithThreadManager(manager, true);
-  }
-#endif
-
-  return thread;
-}
-
 #if defined(WEBRTC_POSIX)
-/* #if !defined(WEBRTC_MAC) */
 ThreadManager::ThreadManager() : main_thread_ref_(CurrentThreadRef()) {
   pthread_key_create(&key_, nullptr);
 }
-/* #endif */
 
 Thread *ThreadManager::CurrentThread() {
   return static_cast<Thread *>(pthread_getspecific(key_));
 }
 
 void ThreadManager::SetCurrentThread(Thread* thread) {
-/* #if RTC_DLOG_IS_ON
+#if RTC_DLOG_IS_ON
   if (CurrentThread() && thread) {
-    RTC_DLOG(LS_ERROR) << "SetCurrentThread: Overwriting an existing value?";
+    /* RTC_DLOG(LS_ERROR) << "SetCurrentThread: Overwriting an existing value?"; */
   }
-#endif  // RTC_DLOG_IS_ON */
+#endif  // RTC_DLOG_IS_ON
   pthread_setspecific(key_, thread);
 }
 #endif
@@ -111,14 +83,20 @@ bool ThreadManager::IsMainThread() {
   return IsThreadRefEqual(CurrentThreadRef(), main_thread_ref_);
 }
 
-Thread::ScopedDisallowBlockingCalls::ScopedDisallowBlockingCalls()
-  : thread_(Thread::Current()),
-    previous_state_(thread_->SetAllowBlockingCalls(false)) {
-}
+// static
+Thread* Thread::Current() {
+  ThreadManager* manager = ThreadManager::Instance();
+  Thread* thread = manager->CurrentThread();
 
-Thread::ScopedDisallowBlockingCalls::~ScopedDisallowBlockingCalls() {
-  RTC_DCHECK(thread_->IsCurrent());
-  thread_->SetAllowBlockingCalls(previous_state_);
+#ifndef NO_MAIN_THREAD_WRAPPING
+  // Only autowrap the thread which instantiated the ThreadManager.
+  if (!thread && manager->IsMainThread()) {
+    thread = new Thread(SocketServer::CreateDefault());
+    thread->WrapCurrentWithThreadManager(manager, true);
+  }
+#endif
+
+  return thread;
 }
 
 // DEPRECATED.
@@ -154,8 +132,6 @@ std::unique_ptr<Thread> Thread::Create() {
 }
 
 bool Thread::SleepMs(int milliseconds) {
-  AssertBlockingIsAllowedOnCurrentThread();
-
 #if defined(WEBRTC_WIN)
   ::Sleep(milliseconds);
   return true;
@@ -180,7 +156,7 @@ bool Thread::SetName(const std::string& name, const void* obj) {
   name_ = name;
   if (obj) {
     char buf[16];
-    sprintfn(buf, sizeof(buf), " 0x%p", obj);
+    snprintf(buf, sizeof(buf), " 0x%p", obj);
     name_ += buf;
   }
   return true;
@@ -270,23 +246,7 @@ void Thread::Join() {
 #endif
 }
 
-bool Thread::SetAllowBlockingCalls(bool allow) {
-  RTC_DCHECK(IsCurrent());
-  bool previous = blocking_calls_allowed_;
-  blocking_calls_allowed_ = allow;
-  return previous;
-}
-
 // static
-void Thread::AssertBlockingIsAllowedOnCurrentThread() {
-#if !defined(NDEBUG)
-  Thread* current = Thread::Current();
-  RTC_DCHECK(!current || current->blocking_calls_allowed_);
-#endif
-}
-
-// static
-/* #if !defined(WEBRTC_MAC) */
 #if defined(WEBRTC_WIN)
 DWORD WINAPI Thread::PreRun(LPVOID pv) {
 #else
@@ -302,13 +262,12 @@ void* Thread::PreRun(void* pv) {
   }
   ThreadManager::Instance()->SetCurrentThread(nullptr);
   delete init;
-#ifdef WEBRTC_WIN
+#if defined(WEBRTC_WIN)
   return 0;
 #else
   return nullptr;
 #endif
 }
-/* #endif */
 
 void Thread::Run() {
   ProcessMessages(kForever);
@@ -343,8 +302,6 @@ void Thread::Send(const Location& posted_from,
     phandler->OnMessage(&msg);
     return;
   }
-
-  AssertBlockingIsAllowedOnCurrentThread();
 
   AutoThread thread;
   Thread *current_thread = Thread::Current();
@@ -429,13 +386,13 @@ bool Thread::PopSendMessageFromThread(const Thread* source, _SendMessage* msg) {
   return false;
 }
 
-void Thread::InvokeInternal(const Location& posted_from,
+/* void Thread::InvokeInternal(const Location& posted_from,
                             MessageHandler* handler) {
   TRACE_EVENT2("webrtc", "Thread::Invoke", "src_file_and_line",
                posted_from.file_and_line(), "src_func",
                posted_from.function_name());
   Send(posted_from, handler);
-}
+} */
 
 void Thread::Clear(MessageHandler* phandler,
                    uint32_t id,
@@ -466,15 +423,11 @@ void Thread::Clear(MessageHandler* phandler,
   MessageQueue::Clear(phandler, id, removed);
 }
 
-/* #if !defined(WEBRTC_MAC) */
-// Note that these methods have a separate implementation for mac and ios
-// defined in webrtc/rtc_base/thread_darwin.mm.
 bool Thread::ProcessMessages(int cmsLoop) {
   // Using ProcessMessages with a custom clock for testing and a time greater
   // than 0 doesn't work, since it's not guaranteed to advance the custom
   // clock's time, and may get stuck in an infinite loop.
-  RTC_DCHECK(GetClockForTesting() == nullptr || cmsLoop == 0 ||
-             cmsLoop == kForever);
+  RTC_DCHECK(cmsLoop == 0 || cmsLoop == kForever);
   int64_t msEnd = (kForever == cmsLoop) ? 0 : TimeAfter(cmsLoop);
   int cmsNext = cmsLoop;
 
@@ -491,7 +444,6 @@ bool Thread::ProcessMessages(int cmsLoop) {
     }
   }
 }
-/* #endif */
 
 bool Thread::WrapCurrentWithThreadManager(ThreadManager* thread_manager,
                                           bool need_synchronize_access) {
@@ -509,6 +461,7 @@ bool Thread::WrapCurrentWithThreadManager(ThreadManager* thread_manager,
     thread_id_ = GetCurrentThreadId();
   }
 #elif defined(WEBRTC_POSIX)
+  RTC_UNUSED(need_synchronize_access);
   thread_ = pthread_self();
 #endif
   owned_ = false;

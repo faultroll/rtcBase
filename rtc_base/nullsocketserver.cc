@@ -17,6 +17,7 @@ NullSocketServer::NullSocketServer() : event_(false, false) {}
 NullSocketServer::~NullSocketServer() {}
 
 bool NullSocketServer::Wait(int cms, bool process_io) {
+  RTC_UNUSED(process_io);
   event_.Wait(cms);
   return true;
 }

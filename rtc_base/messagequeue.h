@@ -15,18 +15,15 @@
 
 #include <algorithm>
 #include <list>
-#include <memory>
+// #include <memory>
 #include <queue>
-#include <utility>
+// #include <utility>
 #include <vector>
 
-/* #include "rtc_base/basictypes.h" */
 #include "rtc_base/constructormagic.h"
 #include "rtc_base/criticalsection.h"
 #include "rtc_base/location.h"
 #include "rtc_base/messagehandler.h"
-/* #include "rtc_base/scoped_ref_ptr.h"
-#include "rtc_base/sigslot.h" */
 #include "rtc_base/socketserver.h"
 #include "rtc_base/thread_annotations.h"
 #include "rtc_base/timeutils.h"
@@ -43,17 +40,6 @@ class MessageQueueManager {
   static void Add(MessageQueue *message_queue);
   static void Remove(MessageQueue *message_queue);
   static void Clear(MessageHandler *handler);
-
-  // For testing purposes, we expose whether or not the MessageQueueManager
-  // instance has been initialized. It has no other use relative to the rest of
-  // the functions of this class, which auto-initialize the underlying
-  // MessageQueueManager instance when necessary.
-  static bool IsInitialized();
-
-  /* // Mainly for testing purposes, for use with a simulated clock.
-  // Ensures that all message queues have processed delayed messages
-  // up until the current point in time.
-  static void ProcessAllMessageQueues(); */
 
  private:
   static MessageQueueManager* Instance();
@@ -86,60 +72,6 @@ class MessageData {
   virtual ~MessageData() {}
 };
 
-/* template <class T>
-class TypedMessageData : public MessageData {
- public:
-  explicit TypedMessageData(const T& data) : data_(data) { }
-  const T& data() const { return data_; }
-  T& data() { return data_; }
- private:
-  T data_;
-};
-
-// Like TypedMessageData, but for pointers that require a delete.
-template <class T>
-class ScopedMessageData : public MessageData {
- public:
-  explicit ScopedMessageData(std::unique_ptr<T> data)
-      : data_(std::move(data)) {}
-  // Deprecated.
-  // TODO(deadbeef): Remove this once downstream applications stop using it.
-  explicit ScopedMessageData(T* data) : data_(data) {}
-  // Deprecated.
-  // TODO(deadbeef): Returning a reference to a unique ptr? Why. Get rid of
-  // this once downstream applications stop using it, then rename inner_data to
-  // just data.
-  const std::unique_ptr<T>& data() const { return data_; }
-  std::unique_ptr<T>& data() { return data_; }
-
-  const T& inner_data() const { return *data_; }
-  T& inner_data() { return *data_; }
-
- private:
-  std::unique_ptr<T> data_;
-};
-
-// Like ScopedMessageData, but for reference counted pointers.
-template <class T>
-class ScopedRefMessageData : public MessageData {
- public:
-  explicit ScopedRefMessageData(T* data) : data_(data) { }
-  const scoped_refptr<T>& data() const { return data_; }
-  scoped_refptr<T>& data() { return data_; }
- private:
-  scoped_refptr<T> data_;
-};
-
-template<class T>
-inline MessageData* WrapMessageData(const T& data) {
-  return new TypedMessageData<T>(data);
-}
-
-template<class T>
-inline const T& UseMessageData(MessageData* data) {
-  return static_cast< TypedMessageData<T>* >(data)->data();
-}
-
 template<class T>
 class DisposeData : public MessageData {
  public:
@@ -147,7 +79,7 @@ class DisposeData : public MessageData {
   virtual ~DisposeData() { delete data_; }
  private:
   T* data_;
-}; */
+};
 
 const uint32_t MQID_ANY = static_cast<uint32_t>(-1);
 const uint32_t MQID_DISPOSE = static_cast<uint32_t>(-2);
@@ -248,12 +180,6 @@ class MessageQueue {
                       MessageHandler* phandler,
                       uint32_t id = 0,
                       MessageData* pdata = nullptr);
-  /* // TODO(honghaiz): Remove this when all the dependencies are removed.
-  virtual void PostAt(const Location& posted_from,
-                      uint32_t tstamp,
-                      MessageHandler* phandler,
-                      uint32_t id = 0,
-                      MessageData* pdata = nullptr); */
   virtual void Clear(MessageHandler* phandler,
                      uint32_t id = MQID_ANY,
                      MessageList* removed = nullptr);
@@ -269,16 +195,12 @@ class MessageQueue {
     return msgq_.size() + dmsgq_.size() + (fPeekKeep_ ? 1u : 0u);
   }
 
-  /* // Internally posts a message which causes the doomed object to be deleted
+  // Internally posts a message which causes the doomed object to be deleted
   template<class T> void Dispose(T* doomed) {
     if (doomed) {
       Post(RTC_FROM_HERE, nullptr, MQID_DISPOSE, new DisposeData<T>(doomed));
     }
-  } */
-
-  /* // When this signal is sent out, any references to this queue should
-  // no longer be used.
-  sigslot::signal0<> SignalQueueDestroyed; */
+  }
 
  protected:
   class PriorityQueue : public std::priority_queue<DelayedMessage> {
