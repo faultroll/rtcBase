@@ -30,15 +30,17 @@
 
 #include "rtc_base/checks.h"
 
+#if defined(_MSC_VER)
+// Warning C4722: destructor never returns, potential memory leak.
+// FatalMessage's dtor very intentionally aborts.
+#pragma warning(disable:4722)
+#endif
+
 namespace rtc {
 namespace {
 
 void VPrintError(const char* format, va_list args) {
-#if defined(WEBRTC_ANDROID)
-  __android_log_vprint(ANDROID_LOG_ERROR, RTC_LOG_TAG_ANDROID, format, args);
-#else
   vfprintf(stderr, format, args);
-#endif
 }
 
 #if defined(__GNUC__)
