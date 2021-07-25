@@ -100,7 +100,7 @@ Thread* Thread::Current() {
   ThreadManager* manager = ThreadManager::Instance();
   Thread* thread = manager->CurrentThread();
 
-#ifndef NO_MAIN_THREAD_WRAPPING
+#if 1 /* !defined(NO_MAIN_THREAD_WRAPPING) */
   // Only autowrap the thread which instantiated the ThreadManager.
   if (!thread && manager->IsMainThread()) {
     thread = new Thread(SocketServer::CreateDefault());
@@ -139,7 +139,7 @@ void ThreadManager::SetCurrentThreadInternal(Thread* thread) {
 #endif
 
 void ThreadManager::SetCurrentThread(Thread* thread) {
-#if RTC_DLOG_IS_ON
+#if 0 // RTC_DLOG_IS_ON
   if (CurrentThread() && thread) {
     /* RTC_DLOG(LS_ERROR) << "SetCurrentThread: Overwriting an existing value?"; */
   }
@@ -566,8 +566,17 @@ bool Thread::SetName(const std::string& name, const void* obj) {
 
 void Thread::SetDispatchWarningMs(int deadline) {
   if (!IsCurrent()) {
+#if 0 /* defined(USING_SENDLIST) */
+    // what to do here?
+#else
     /* PostTask(webrtc::ToQueuedTask(
         [this, deadline]() { SetDispatchWarningMs(deadline); })); */
+    Thread* current_thread = Thread::Current();
+    _SetDispatchWarningMsMessage *smsg = new _SetDispatchWarningMsMessage;
+    smsg->thread = current_thread;
+    smsg->deadline = deadline;
+    Post(RTC_FROM_HERE, &queued_task_handler_, QueuedTaskHandler::kSetDispatchWarningMs, smsg);
+#endif
     return;
   }
   dispatch_warning_ms_ = deadline;
@@ -780,10 +789,9 @@ void Thread::Send(const Location& posted_from,
   smsg->msg = msg;
   smsg->ready = &ready;
   smsg->done = done_event.get();
-  smsg->crit = &crit_;
   // Though Post takes MessageData by raw pointer (last parameter), it still
   // takes it with ownership.
-  Post(RTC_FROM_HERE, &queued_task_handler_, /*id=*/0, smsg);
+  Post(RTC_FROM_HERE, &queued_task_handler_, QueuedTaskHandler::kSend, smsg);
 
   if (current_thread) {
     bool waited = false;
@@ -814,7 +822,7 @@ void Thread::Send(const Location& posted_from,
     done_event->Wait(rtc::Event::kForever);
   }
 
-#endif /* defined(USING_SENDLIST) */
+#endif
 }
 
 #if 0 /* defined(USING_SENDLIST) */
@@ -861,17 +869,27 @@ void Thread::QueuedTaskHandler::OnMessage(Message* msg) {
   /* auto* data = static_cast<ScopedMessageData<webrtc::QueuedTask>*>(msg->pdata);
   std::unique_ptr<webrtc::QueuedTask> task = std::move(data->data()); */
   switch (msg->message_id) {
-    case kSend:
+    case kSend: { // without this brace, error: conflicting declaration ... will happen
       _SendMessage *smsg = (_SendMessage *)msg->pdata;
       smsg->msg.phandler->OnMessage(&smsg->msg);
       if (smsg->thread) {
-        CritScope cs(smsg->crit);
+        CritScope cs(&smsg->thread->crit_);
         *smsg->ready = true;
         smsg->thread->socketserver()->WakeUp();
       } else {
         smsg->done->Set();
       }
       break;
+    }
+    case kSetDispatchWarningMs: {
+      _SetDispatchWarningMsMessage *smsg = (_SetDispatchWarningMsMessage *)msg->pdata;
+      if (smsg->thread) {
+        smsg->thread->SetDispatchWarningMs(smsg->deadline);
+      } else {
+        // what to do here?
+      }
+      break;
+    }
   }
   // Thread expects handler to own Message::pdata when OnMessage is called
   // Since MessageData is no longer needed, delete it.
@@ -883,7 +901,7 @@ void Thread::QueuedTaskHandler::OnMessage(Message* msg) {
     task.release(); */
 }
 
-#endif /* defined(USING_SENDLIST) */
+#endif
 
 /* void Thread::Delete() {
   Stop();
@@ -954,7 +972,8 @@ bool Thread::IsRunning() {
   return thread_ != 0;
 #endif
 }
-#if 0
+
+#if 0 /* defined(USING_SENDLIST) */
 AutoThread::AutoThread()
     : Thread(SocketServer::CreateDefault(), /*do_init=*/false) {
   if (!ThreadManager::Instance()->CurrentThread()) {
@@ -1007,5 +1026,6 @@ AutoSocketServerThread::~AutoSocketServerThread() {
   }
 }
 
-#endif /* defined(USING_SENDLIST) */
+#endif
+
 }  // namespace rtc

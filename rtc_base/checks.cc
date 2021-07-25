@@ -15,11 +15,6 @@
 #include <cstdio>
 #include <cstdlib>
 
-#if defined(WEBRTC_ANDROID)
-#define RTC_LOG_TAG_ANDROID "rtc"
-#include <android/log.h>  // NOLINT
-#endif
-
 #if defined(WEBRTC_WIN)
 #include <windows.h>
 #endif
@@ -34,12 +29,6 @@
 #endif  // WEBRTC_WIN
 
 #include "rtc_base/checks.h"
-
-#if defined(_MSC_VER)
-// Warning C4722: destructor never returns, potential memory leak.
-// FatalMessage's dtor very intentionally aborts.
-#pragma warning(disable:4722)
-#endif
 
 namespace rtc {
 namespace {

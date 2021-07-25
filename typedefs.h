@@ -35,10 +35,4 @@
 #define RTC_UNUSED(x) static_cast<void>(x)
 #endif  // RTC_UNUSED
 
-// From rtc_base/basictypes.h
-// Use these to declare and define a static local variable that gets leaked so
-// that its destructors are not called at exit.
-#define RTC_DEFINE_STATIC_LOCAL(type, name, arguments) \
-  static type& name = *new type arguments
-
 #endif  // TYPEDEFS_H_

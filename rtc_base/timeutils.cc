@@ -12,9 +12,6 @@
 
 #if defined(WEBRTC_POSIX)
 #include <sys/time.h>
-/* #if defined(WEBRTC_MAC)
-#include <mach/mach_time.h>
-#endif */
 #endif
 
 #if defined(WEBRTC_WIN)

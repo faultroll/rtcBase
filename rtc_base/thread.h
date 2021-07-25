@@ -362,13 +362,19 @@ class RTC_LOCKABLE Thread {
     Message msg;
     bool *ready;
     Event *done;
-    CriticalSection *crit;
+  };
+
+  class _SetDispatchWarningMsMessage final : public rtc::MessageData {
+   public:
+    Thread *thread;
+    int deadline;
   };
 
   class QueuedTaskHandler final : public MessageHandler {
    public:
     enum Operation {
       kSend,
+      kSetDispatchWarningMs,
     };
     QueuedTaskHandler() {}
     void OnMessage(Message* msg) override;
@@ -377,7 +383,7 @@ class RTC_LOCKABLE Thread {
   // Runs webrtc::QueuedTask posted to the Thread.
   QueuedTaskHandler queued_task_handler_;
 
-#endif /* defined(USING_SENDLIST) */
+#endif
 
   bool fPeekKeep_;
   Message msgPeek_;
@@ -422,6 +428,7 @@ class RTC_LOCKABLE Thread {
 
   RTC_DISALLOW_COPY_AND_ASSIGN(Thread);
 };
+
 #if 0 /* defined(USING_SENDLIST) */
 // AutoThread automatically installs itself at construction
 // uninstalls at destruction, if a Thread object is
@@ -454,7 +461,8 @@ class AutoSocketServerThread : public Thread {
   RTC_DISALLOW_COPY_AND_ASSIGN(AutoSocketServerThread);
 };
 
-#endif /* defined(USING_SENDLIST) */
+#endif
+
 }  // namespace rtc
 
 #endif  // RTC_BASE_THREAD_H_
