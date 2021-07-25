@@ -17,7 +17,7 @@
 
 namespace rtc {
 
-class MessageQueue;
+class Thread;
 
 // Provides the ability to wait for activity on a set of sockets.  The Thread
 // class provides a nice wrapper on a socket server.
@@ -32,7 +32,7 @@ class SocketServer : public SocketFactory {
   // When the socket server is installed into a Thread, this function is
   // called to allow the socket server to use the thread's message queue for
   // any messaging that it might need to perform.
-  virtual void SetMessageQueue(MessageQueue* queue) { RTC_UNUSED(queue); }
+  virtual void SetMessageQueue(Thread* queue) { RTC_UNUSED(queue); }
 
   // Sleeps until:
   //  1) cms milliseconds have elapsed (unless cms == kForever)

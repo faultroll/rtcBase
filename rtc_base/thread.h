@@ -14,11 +14,16 @@
 #include <algorithm>
 #include <list>
 #include <string>
+#include <queue>
 #include <vector>
 
 #include "rtc_base/constructormagic.h"
-#include "rtc_base/messagequeue.h"
+#include "rtc_base/thread_message.h"
 #include "rtc_base/platform_thread.h"
+#include "rtc_base/criticalsection.h"
+#include "rtc_base/messagehandler.h"
+#include "rtc_base/socketserver.h"
+#include "rtc_base/thread_annotations.h"
 
 namespace rtc {
 
@@ -30,6 +35,10 @@ class ThreadManager {
 
   // Singleton, constructor and destructor are private.
   static ThreadManager* Instance();
+
+  static void Add(Thread* message_queue);
+  static void Remove(Thread* message_queue);
+  static void Clear(MessageHandler* handler);
 
   Thread* CurrentThread();
   void SetCurrentThread(Thread* thread);
@@ -47,7 +56,7 @@ class ThreadManager {
   // shame to break it.  It is also conceivable on Win32 that we won't even
   // be able to get synchronization privileges, in which case the result
   // will have a null handle.
-  Thread *WrapCurrentThread();
+  Thread* WrapCurrentThread();
   void UnwrapCurrentThread();
 
   bool IsMainThread();
@@ -55,6 +64,20 @@ class ThreadManager {
  private:
   ThreadManager();
   ~ThreadManager();
+
+  void SetCurrentThreadInternal(Thread* thread);
+  void AddInternal(Thread* message_queue);
+  void RemoveInternal(Thread* message_queue);
+  void ClearInternal(MessageHandler* handler);
+
+  // This list contains all live Threads.
+  std::vector<Thread*> message_queues_ RTC_GUARDED_BY(crit_);
+
+  // Methods that don't modify the list of message queues may be called in a
+  // re-entrant fashion. "processing_" keeps track of the depth of re-entrant
+  // calls.
+  CriticalSection crit_;
+  size_t processing_ RTC_GUARDED_BY(crit_) = 0;
 
 #if defined(WEBRTC_POSIX)
   pthread_key_t key_;
@@ -70,48 +93,102 @@ class ThreadManager {
   RTC_DISALLOW_COPY_AND_ASSIGN(ThreadManager);
 };
 
-struct _SendMessage {
-  _SendMessage() {}
-  Thread *thread;
-  Message msg;
-  bool *ready;
-};
-
-class Runnable {
- public:
-  virtual ~Runnable() {}
-  virtual void Run(Thread* thread) = 0;
-
- protected:
-  Runnable() {}
-
- private:
-  RTC_DISALLOW_COPY_AND_ASSIGN(Runnable);
-};
-
 // WARNING! SUBCLASSES MUST CALL Stop() IN THEIR DESTRUCTORS!  See ~Thread().
 
-class RTC_LOCKABLE Thread : public MessageQueue {
+class RTC_LOCKABLE Thread {
  public:
-  // DEPRECATED.
-  // The default constructor should not be used because it hides whether or
-  // not a socket server will be associated with the thread. Most instances
-  // of Thread do actually not need one, so please use either of the Create*
-  // methods to construct an instance of Thread.
-  Thread();
+  static const int kForever = -1;
 
+  // Create a new Thread and optionally assign it to the passed
+  // SocketServer. Subclasses that override Clear should pass false for
+  // init_queue and call DoInit() from their constructor to prevent races
+  // with the ThreadManager using the object while the vtable is still
+  // being created.
   explicit Thread(SocketServer* ss);
   explicit Thread(std::unique_ptr<SocketServer> ss);
+
+  // Constructors meant for subclasses; they should call DoInit themselves and
+  // pass false for |do_init|, so that DoInit is called only on the fully
+  // instantiated class, which avoids a vptr data race.
+  Thread(SocketServer* ss, bool do_init);
+  Thread(std::unique_ptr<SocketServer> ss, bool do_init);
 
   // NOTE: ALL SUBCLASSES OF Thread MUST CALL Stop() IN THEIR DESTRUCTORS (or
   // guarantee Stop() is explicitly called before the subclass is destroyed).
   // This is required to avoid a data race between the destructor modifying the
   // vtable, and the Thread::PreRun calling the virtual method Run().
-  ~Thread() override;
+
+  // NOTE: SUBCLASSES OF Thread THAT OVERRIDE Clear MUST CALL
+  // DoDestroy() IN THEIR DESTRUCTORS! This is required to avoid a data race
+  // between the destructor modifying the vtable, and the ThreadManager
+  // calling Clear on the object from a different thread.
+  virtual ~Thread();
 
   static std::unique_ptr<Thread> CreateWithSocketServer();
   static std::unique_ptr<Thread> Create();
   static Thread* Current();
+
+  SocketServer* socketserver();
+
+  // Note: The behavior of Thread has changed.  When a thread is stopped,
+  // futher Posts and Sends will fail.  However, any pending Sends and *ready*
+  // Posts (as opposed to unexpired delayed Posts) will be delivered before
+  // Get (or Peek) returns false.  By guaranteeing delivery of those messages,
+  // we eliminate the race condition when an MessageHandler and Thread
+  // may be destroyed independently of each other.
+  virtual void Quit();
+  virtual bool IsQuitting();
+  virtual void Restart();
+  // Not all message queues actually process messages (such as SignalThread).
+  // In those cases, it's important to know, before posting, that it won't be
+  // Processed.  Normally, this would be true until IsQuitting() is true.
+  virtual bool IsProcessingMessages();
+
+  // Get() will process I/O until:
+  //  1) A message is available (returns true)
+  //  2) cmsWait seconds have elapsed (returns false)
+  //  3) Stop() is called (returns false)
+  virtual bool Get(Message* pmsg,
+                   int cmsWait = kForever,
+                   bool process_io = true);
+  virtual bool Peek(Message* pmsg, int cmsWait = 0);
+  // |time_sensitive| is deprecated and should always be false.
+  virtual void Post(const Location& posted_from,
+                    MessageHandler* phandler,
+                    uint32_t id = 0,
+                    MessageData* pdata = nullptr,
+                    bool time_sensitive = false);
+  virtual void PostDelayed(const Location& posted_from,
+                           int delay_ms,
+                           MessageHandler* phandler,
+                           uint32_t id = 0,
+                           MessageData* pdata = nullptr);
+  virtual void PostAt(const Location& posted_from,
+                      int64_t run_at_ms,
+                      MessageHandler* phandler,
+                      uint32_t id = 0,
+                      MessageData* pdata = nullptr);
+  virtual void Clear(MessageHandler* phandler,
+                     uint32_t id = MQID_ANY,
+                     MessageList* removed = nullptr);
+  virtual void Dispatch(Message* pmsg);
+
+  // Amount of time until the next message can be retrieved
+  virtual int GetDelay();
+
+  bool empty() const { return size() == 0u; }
+  size_t size() const {
+    CritScope cs(&crit_);
+    return messages_.size() + delayed_messages_.size() + (fPeekKeep_ ? 1u : 0u);
+  }
+
+  // Internally posts a message which causes the doomed object to be deleted
+  template <class T>
+  void Dispose(T* doomed) {
+    if (doomed) {
+      Post(RTC_FROM_HERE, nullptr, MQID_DISPOSE, new DisposeData<T>(doomed));
+    }
+  }
 
   bool IsCurrent() const;
 
@@ -125,12 +202,17 @@ class RTC_LOCKABLE Thread : public MessageQueue {
   const std::string& name() const { return name_; }
   bool SetName(const std::string& name, const void* obj);
 
+  // Sets the expected processing time in ms. The thread will write
+  // log messages when Invoke() takes more time than this.
+  // Default is 50 ms.
+  void SetDispatchWarningMs(int deadline);
+
   // Starts the execution of the thread.
-  bool Start(Runnable* runnable = nullptr);
+  bool Start();
 
   // Tells the thread to stop and waits until it is joined.
   // Never call Stop on the current thread.  Instead use the inherited Quit
-  // function which will exit the base MessageQueue without terminating the
+  // function which will exit the base Thread without terminating the
   // underlying OS thread.
   virtual void Stop();
 
@@ -143,28 +225,6 @@ class RTC_LOCKABLE Thread : public MessageQueue {
                     MessageHandler* phandler,
                     uint32_t id = 0,
                     MessageData* pdata = nullptr);
-
-  /* // Convenience method to invoke a functor on another thread.  Caller must
-  // provide the |ReturnT| template argument, which cannot (easily) be deduced.
-  // Uses Send() internally, which blocks the current thread until execution
-  // is complete.
-  // Ex: bool result = thread.Invoke<bool>(RTC_FROM_HERE,
-  // &MyFunctionReturningBool);
-  // NOTE: This function can only be called when synchronous calls are allowed.
-  // See ScopedDisallowBlockingCalls for details.
-  template <class ReturnT, class FunctorT>
-  ReturnT Invoke(const Location& posted_from, FunctorT&& functor) {
-    FunctorMessageHandler<ReturnT, FunctorT> handler(
-        std::forward<FunctorT>(functor));
-    InvokeInternal(posted_from, &handler);
-    return handler.MoveResult();
-  } */
-
-  // From MessageQueue
-  void Clear(MessageHandler* phandler,
-             uint32_t id = MQID_ANY,
-             MessageList* removed = nullptr) override;
-  void ReceiveSends() override;
 
   // ProcessMessages will process I/O and dispatch messages until:
   //  1) cms milliseconds have elapsed (returns true)
@@ -189,6 +249,62 @@ class RTC_LOCKABLE Thread : public MessageQueue {
   void UnwrapCurrent();
 
  protected:
+  // DelayedMessage goes into a priority queue, sorted by trigger time. Messages
+  // with the same trigger time are processed in num_ (FIFO) order.
+  class DelayedMessage {
+   public:
+    DelayedMessage(int64_t delay,
+                   int64_t run_time_ms,
+                   uint32_t num,
+                   const Message& msg)
+        : delay_ms_(delay),
+          run_time_ms_(run_time_ms),
+          message_number_(num),
+          msg_(msg) {}
+
+    bool operator<(const DelayedMessage& dmsg) const {
+      return (dmsg.run_time_ms_ < run_time_ms_) ||
+             ((dmsg.run_time_ms_ == run_time_ms_) &&
+              (dmsg.message_number_ < message_number_));
+    }
+
+    int64_t delay_ms_;  // for debugging
+    int64_t run_time_ms_;
+    // Monotonicaly incrementing number used for ordering of messages
+    // targeted to execute at the same time.
+    uint32_t message_number_;
+    Message msg_;
+  };
+
+  class PriorityQueue : public std::priority_queue<DelayedMessage> {
+   public:
+    container_type& container() { return c; }
+    void reheap() { make_heap(c.begin(), c.end(), comp); }
+  };
+
+  void DoDelayPost(const Location& posted_from,
+                   int64_t cmsDelay,
+                   int64_t tstamp,
+                   MessageHandler* phandler,
+                   uint32_t id,
+                   MessageData* pdata);
+
+  // Perform initialization, subclasses must call this from their constructor
+  // if false was passed as init_queue to the Thread constructor.
+  void DoInit();
+
+  // Does not take any lock. Must be called either while holding crit_, or by
+  // the destructor (by definition, the latter has exclusive access).
+  void ClearInternal(MessageHandler* phandler,
+                     uint32_t id,
+                     MessageList* removed) RTC_EXCLUSIVE_LOCKS_REQUIRED(&crit_);
+
+  // Perform cleanup; subclasses must call this from the destructor,
+  // and are not expected to actually hold the lock.
+  void DoDestroy() RTC_EXCLUSIVE_LOCKS_REQUIRED(&crit_);
+
+  void WakeUpSocketServer();
+
   // Same as WrapCurrent except that it never fails as it does not try to
   // acquire the synchronization access of the thread. The caller should never
   // call Stop() or Join() on this thread.
@@ -198,15 +314,12 @@ class RTC_LOCKABLE Thread : public MessageQueue {
   void Join();
 
  private:
-  struct ThreadInit {
-    Thread* thread;
-    Runnable* runnable;
-  };
+  static const int kSlowDispatchLoggingThreshold = 50;  // 50 ms
 
 #if defined(WEBRTC_WIN)
   static DWORD WINAPI PreRun(LPVOID context);
 #else
-  static void *PreRun(void *pv);
+  static void* PreRun(void* pv);
 #endif
 
   // ThreadManager calls this instead WrapCurrent() because
@@ -220,6 +333,16 @@ class RTC_LOCKABLE Thread : public MessageQueue {
   // Return true if the thread is currently running.
   bool IsRunning();
 
+#if 1
+  struct _SendMessage {
+    _SendMessage() {}
+    Thread *thread;
+    Message msg;
+    bool *ready;
+  };
+
+  void ReceiveSends();
+
   // Processes received "Send" requests. If |source| is not null, only requests
   // from |source| are processed, otherwise, all requests are processed.
   void ReceiveSendsFromThread(const Thread* source);
@@ -230,9 +353,27 @@ class RTC_LOCKABLE Thread : public MessageQueue {
   // Returns true if there is such a message.
   bool PopSendMessageFromThread(const Thread* source, _SendMessage* msg);
 
-  /* void InvokeInternal(const Location& posted_from, MessageHandler* handler); */
+  void InvokeInternal(const Location& posted_from, MessageHandler* handler);
 
   std::list<_SendMessage> sendlist_;
+
+#endif
+
+  bool fPeekKeep_;
+  Message msgPeek_;
+  MessageList messages_ RTC_GUARDED_BY(crit_);
+  PriorityQueue delayed_messages_ RTC_GUARDED_BY(crit_);
+  uint32_t delayed_next_num_ RTC_GUARDED_BY(crit_);
+  CriticalSection crit_;
+  bool fInitialized_;
+  bool fDestroyed_;
+  volatile int stop_;
+
+  // The SocketServer might not be owned by Thread.
+  SocketServer* const ss_;
+  // Used if SocketServer ownership lies with |this|.
+  std::unique_ptr<SocketServer> own_ss_;
+
   std::string name_;
 
   // TODO(tommi): Add thread checks for proper use of control methods.
@@ -257,17 +398,21 @@ class RTC_LOCKABLE Thread : public MessageQueue {
 
   friend class ThreadManager;
 
+  int dispatch_warning_ms_ RTC_GUARDED_BY(this) = kSlowDispatchLoggingThreshold;
+
   RTC_DISALLOW_COPY_AND_ASSIGN(Thread);
 };
 
 // AutoThread automatically installs itself at construction
 // uninstalls at destruction, if a Thread object is
 // _not already_ associated with the current OS thread.
-
+//
+// NOTE: *** This class should only be used by tests ***
+//
 class AutoThread : public Thread {
  public:
   AutoThread();
-  ~AutoThread() override;
+  ~AutoThread();
 
  private:
   RTC_DISALLOW_COPY_AND_ASSIGN(AutoThread);
@@ -281,7 +426,7 @@ class AutoThread : public Thread {
 class AutoSocketServerThread : public Thread {
  public:
   explicit AutoSocketServerThread(SocketServer* ss);
-  ~AutoSocketServerThread() override;
+  ~AutoSocketServerThread();
 
  private:
   rtc::Thread* old_thread_;

@@ -18,9 +18,34 @@
 
 namespace rtc {
 
+namespace {
+
+class RTC_SCOPED_LOCKABLE MarkProcessingCritScope {
+ public:
+  MarkProcessingCritScope(const CriticalSection* cs, size_t* processing)
+      RTC_EXCLUSIVE_LOCK_FUNCTION(cs)
+      : cs_(cs), processing_(processing) {
+    cs_->Enter();
+    *processing_ += 1;
+  }
+
+  ~MarkProcessingCritScope() RTC_UNLOCK_FUNCTION() {
+    *processing_ -= 1;
+    cs_->Leave();
+  }
+
+ private:
+  const CriticalSection* const cs_;
+  size_t* processing_;
+
+  RTC_DISALLOW_COPY_AND_ASSIGN(MarkProcessingCritScope);
+};
+
+}  // namespace
+
 ThreadManager* ThreadManager::Instance() {
-  RTC_DEFINE_STATIC_LOCAL(ThreadManager, thread_manager, ());
-  return &thread_manager;
+  static ThreadManager* const thread_manager = new ThreadManager();
+  return thread_manager;
 }
 
 ThreadManager::~ThreadManager() {
@@ -28,14 +53,90 @@ ThreadManager::~ThreadManager() {
   RTC_NOTREACHED() << "ThreadManager should never be destructed.";
 }
 
+// static
+void ThreadManager::Add(Thread* message_queue) {
+  return Instance()->AddInternal(message_queue);
+}
+void ThreadManager::AddInternal(Thread* message_queue) {
+  CritScope cs(&crit_);
+  // Prevent changes while the list of message queues is processed.
+  RTC_DCHECK_EQ(processing_, 0);
+  message_queues_.push_back(message_queue);
+}
+
+// static
+void ThreadManager::Remove(Thread* message_queue) {
+  return Instance()->RemoveInternal(message_queue);
+}
+void ThreadManager::RemoveInternal(Thread* message_queue) {
+  {
+    CritScope cs(&crit_);
+    // Prevent changes while the list of message queues is processed.
+    RTC_DCHECK_EQ(processing_, 0);
+    std::vector<Thread*>::iterator iter;
+    iter = std::find(message_queues_.begin(), message_queues_.end(),
+                     message_queue);
+    if (iter != message_queues_.end()) {
+      message_queues_.erase(iter);
+    }
+  }
+}
+// static
+void ThreadManager::Clear(MessageHandler* handler) {
+  return Instance()->ClearInternal(handler);
+}
+void ThreadManager::ClearInternal(MessageHandler* handler) {
+  // Deleted objects may cause re-entrant calls to ClearInternal. This is
+  // allowed as the list of message queues does not change while queues are
+  // cleared.
+  MarkProcessingCritScope cs(&crit_, &processing_);
+  for (Thread* queue : message_queues_) {
+    queue->Clear(handler);
+  }
+}
+
+// static
+Thread* Thread::Current() {
+  ThreadManager* manager = ThreadManager::Instance();
+  Thread* thread = manager->CurrentThread();
+
+#ifndef NO_MAIN_THREAD_WRAPPING
+  // Only autowrap the thread which instantiated the ThreadManager.
+  if (!thread && manager->IsMainThread()) {
+    thread = new Thread(SocketServer::CreateDefault());
+    thread->WrapCurrentWithThreadManager(manager, true);
+  }
+#endif
+
+  return thread;
+}
+
 #if defined(WEBRTC_POSIX)
 ThreadManager::ThreadManager() : main_thread_ref_(CurrentThreadRef()) {
   pthread_key_create(&key_, nullptr);
 }
 
-Thread *ThreadManager::CurrentThread() {
-  return static_cast<Thread *>(pthread_getspecific(key_));
+Thread* ThreadManager::CurrentThread() {
+  return static_cast<Thread*>(pthread_getspecific(key_));
 }
+
+void ThreadManager::SetCurrentThreadInternal(Thread* thread) {
+  pthread_setspecific(key_, thread);
+}
+#endif
+
+#if defined(WEBRTC_WIN)
+ThreadManager::ThreadManager()
+    : key_(TlsAlloc()), main_thread_ref_(CurrentThreadRef()) {}
+
+Thread* ThreadManager::CurrentThread() {
+  return static_cast<Thread*>(TlsGetValue(key_));
+}
+
+void ThreadManager::SetCurrentThreadInternal(Thread* thread) {
+  TlsSetValue(key_, thread);
+}
+#endif
 
 void ThreadManager::SetCurrentThread(Thread* thread) {
 #if RTC_DLOG_IS_ON
@@ -43,26 +144,25 @@ void ThreadManager::SetCurrentThread(Thread* thread) {
     /* RTC_DLOG(LS_ERROR) << "SetCurrentThread: Overwriting an existing value?"; */
   }
 #endif  // RTC_DLOG_IS_ON
-  pthread_setspecific(key_, thread);
-}
-#endif
 
-#if defined(WEBRTC_WIN)
-ThreadManager::ThreadManager()
-    : key_(TlsAlloc()), main_thread_ref_(CurrentThreadRef()) {
+  /* if (thread) {
+    thread->EnsureIsCurrentTaskQueue();
+  } else {
+    Thread* current = CurrentThread();
+    if (current) {
+      // The current thread is being cleared, e.g. as a result of
+      // UnwrapCurrent() being called or when a thread is being stopped
+      // (see PreRun()). This signals that the Thread instance is being detached
+      // from the thread, which also means that TaskQueue::Current() must not
+      // return a pointer to the Thread instance.
+      current->ClearCurrentTaskQueue();
+    }
+  } */
+
+  SetCurrentThreadInternal(thread);
 }
 
-Thread *ThreadManager::CurrentThread() {
-  return static_cast<Thread *>(TlsGetValue(key_));
-}
-
-void ThreadManager::SetCurrentThread(Thread *thread) {
-  RTC_DCHECK(!CurrentThread() || !thread);
-  TlsSetValue(key_, thread);
-}
-#endif
-
-Thread *ThreadManager::WrapCurrentThread() {
+Thread* ThreadManager::WrapCurrentThread() {
   Thread* result = CurrentThread();
   if (nullptr == result) {
     result = new Thread(SocketServer::CreateDefault());
@@ -83,39 +183,341 @@ bool ThreadManager::IsMainThread() {
   return IsThreadRefEqual(CurrentThreadRef(), main_thread_ref_);
 }
 
-// static
-Thread* Thread::Current() {
-  ThreadManager* manager = ThreadManager::Instance();
-  Thread* thread = manager->CurrentThread();
-
-#ifndef NO_MAIN_THREAD_WRAPPING
-  // Only autowrap the thread which instantiated the ThreadManager.
-  if (!thread && manager->IsMainThread()) {
-    thread = new Thread(SocketServer::CreateDefault());
-    thread->WrapCurrentWithThreadManager(manager, true);
-  }
-#endif
-
-  return thread;
-}
-
-// DEPRECATED.
-Thread::Thread() : Thread(SocketServer::CreateDefault()) {}
-
-Thread::Thread(SocketServer* ss) : MessageQueue(ss, false) {
-  SetName("Thread", this);  // default name
-  DoInit();
-}
+Thread::Thread(SocketServer* ss) : Thread(ss, /*do_init=*/true) {}
 
 Thread::Thread(std::unique_ptr<SocketServer> ss)
-    : MessageQueue(std::move(ss), false) {
+    : Thread(std::move(ss), /*do_init=*/true) {}
+
+Thread::Thread(SocketServer* ss, bool do_init)
+    : fPeekKeep_(false),
+      delayed_next_num_(0),
+      fInitialized_(false),
+      fDestroyed_(false),
+      stop_(0),
+      ss_(ss) {
+  RTC_DCHECK(ss);
+  ss_->SetMessageQueue(this);
   SetName("Thread", this);  // default name
-  DoInit();
+  if (do_init) {
+    DoInit();
+  }
+}
+
+Thread::Thread(std::unique_ptr<SocketServer> ss, bool do_init)
+    : Thread(ss.get(), do_init) {
+  own_ss_ = std::move(ss);
 }
 
 Thread::~Thread() {
   Stop();
   DoDestroy();
+}
+
+void Thread::DoInit() {
+  if (fInitialized_) {
+    return;
+  }
+
+  fInitialized_ = true;
+  ThreadManager::Add(this);
+}
+
+void Thread::DoDestroy() {
+  if (fDestroyed_) {
+    return;
+  }
+
+  fDestroyed_ = true;
+  // The signal is done from here to ensure
+  // that it always gets called when the queue
+  // is going away.
+  if (ss_) {
+    ss_->SetMessageQueue(nullptr);
+  }
+  ThreadManager::Remove(this);
+  ClearInternal(nullptr, MQID_ANY, nullptr);
+}
+
+SocketServer* Thread::socketserver() {
+  return ss_;
+}
+
+void Thread::WakeUpSocketServer() {
+  ss_->WakeUp();
+}
+
+void Thread::Quit() {
+  AtomicOps::ReleaseStore(&stop_, 1);
+  WakeUpSocketServer();
+}
+
+bool Thread::IsQuitting() {
+  return AtomicOps::AcquireLoad(&stop_) != 0;
+}
+
+void Thread::Restart() {
+  AtomicOps::ReleaseStore(&stop_, 0);
+}
+
+bool Thread::Peek(Message* pmsg, int cmsWait) {
+  if (fPeekKeep_) {
+    *pmsg = msgPeek_;
+    return true;
+  }
+  if (!Get(pmsg, cmsWait))
+    return false;
+  msgPeek_ = *pmsg;
+  fPeekKeep_ = true;
+  return true;
+}
+
+bool Thread::Get(Message* pmsg, int cmsWait, bool process_io) {
+  // Return and clear peek if present
+  // Always return the peek if it exists so there is Peek/Get symmetry
+
+  if (fPeekKeep_) {
+    *pmsg = msgPeek_;
+    fPeekKeep_ = false;
+    return true;
+  }
+
+  // Get w/wait + timer scan / dispatch + socket / event multiplexer dispatch
+
+  int64_t cmsTotal = cmsWait;
+  int64_t cmsElapsed = 0;
+  int64_t msStart = TimeMillis();
+  int64_t msCurrent = msStart;
+  while (true) {
+    // Check for posted events
+    int64_t cmsDelayNext = kForever;
+    bool first_pass = true;
+    while (true) {
+      // All queue operations need to be locked, but nothing else in this loop
+      // (specifically handling disposed message) can happen inside the crit.
+      // Otherwise, disposed MessageHandlers will cause deadlocks.
+      {
+        CritScope cs(&crit_);
+        // On the first pass, check for delayed messages that have been
+        // triggered and calculate the next trigger time.
+        if (first_pass) {
+          first_pass = false;
+          while (!delayed_messages_.empty()) {
+            if (msCurrent < delayed_messages_.top().run_time_ms_) {
+              cmsDelayNext =
+                  TimeDiff(delayed_messages_.top().run_time_ms_, msCurrent);
+              break;
+            }
+            messages_.push_back(delayed_messages_.top().msg_);
+            delayed_messages_.pop();
+          }
+        }
+        // Pull a message off the message queue, if available.
+        if (messages_.empty()) {
+          break;
+        } else {
+          *pmsg = messages_.front();
+          messages_.pop_front();
+        }
+      }  // crit_ is released here.
+
+      // If this was a dispose message, delete it and skip it.
+      if (MQID_DISPOSE == pmsg->message_id) {
+        RTC_DCHECK(nullptr == pmsg->phandler);
+        delete pmsg->pdata;
+        *pmsg = Message();
+        continue;
+      }
+      return true;
+    }
+
+    if (IsQuitting())
+      break;
+
+    // Which is shorter, the delay wait or the asked wait?
+
+    int64_t cmsNext;
+    if (cmsWait == kForever) {
+      cmsNext = cmsDelayNext;
+    } else {
+      cmsNext = std::max<int64_t>(0, cmsTotal - cmsElapsed);
+      if ((cmsDelayNext != kForever) && (cmsDelayNext < cmsNext))
+        cmsNext = cmsDelayNext;
+    }
+
+    {
+      // Wait and multiplex in the meantime
+      if (!ss_->Wait(static_cast<int>(cmsNext), process_io))
+        return false;
+    }
+
+    // If the specified timeout expired, return
+
+    msCurrent = TimeMillis();
+    cmsElapsed = TimeDiff(msCurrent, msStart);
+    if (cmsWait != kForever) {
+      if (cmsElapsed >= cmsWait)
+        return false;
+    }
+  }
+  return false;
+}
+
+void Thread::Post(const Location& posted_from,
+                  MessageHandler* phandler,
+                  uint32_t id,
+                  MessageData* pdata,
+                  bool time_sensitive) {
+  RTC_DCHECK(!time_sensitive);
+  if (IsQuitting()) {
+    delete pdata;
+    return;
+  }
+
+  // Keep thread safe
+  // Add the message to the end of the queue
+  // Signal for the multiplexer to return
+
+  {
+    CritScope cs(&crit_);
+    Message msg;
+    msg.posted_from = posted_from;
+    msg.phandler = phandler;
+    msg.message_id = id;
+    msg.pdata = pdata;
+    messages_.push_back(msg);
+  }
+  WakeUpSocketServer();
+}
+
+void Thread::PostDelayed(const Location& posted_from,
+                         int delay_ms,
+                         MessageHandler* phandler,
+                         uint32_t id,
+                         MessageData* pdata) {
+  return DoDelayPost(posted_from, delay_ms, TimeAfter(delay_ms), phandler, id,
+                     pdata);
+}
+
+void Thread::PostAt(const Location& posted_from,
+                    int64_t run_at_ms,
+                    MessageHandler* phandler,
+                    uint32_t id,
+                    MessageData* pdata) {
+  return DoDelayPost(posted_from, TimeUntil(run_at_ms), run_at_ms, phandler, id,
+                     pdata);
+}
+
+void Thread::DoDelayPost(const Location& posted_from,
+                         int64_t delay_ms,
+                         int64_t run_at_ms,
+                         MessageHandler* phandler,
+                         uint32_t id,
+                         MessageData* pdata) {
+  if (IsQuitting()) {
+    delete pdata;
+    return;
+  }
+
+  // Keep thread safe
+  // Add to the priority queue. Gets sorted soonest first.
+  // Signal for the multiplexer to return.
+
+  {
+    CritScope cs(&crit_);
+    Message msg;
+    msg.posted_from = posted_from;
+    msg.phandler = phandler;
+    msg.message_id = id;
+    msg.pdata = pdata;
+    DelayedMessage delayed(delay_ms, run_at_ms, delayed_next_num_, msg);
+    delayed_messages_.push(delayed);
+    // If this message queue processes 1 message every millisecond for 50 days,
+    // we will wrap this number.  Even then, only messages with identical times
+    // will be misordered, and then only briefly.  This is probably ok.
+    ++delayed_next_num_;
+    RTC_DCHECK_NE(0, delayed_next_num_);
+  }
+  WakeUpSocketServer();
+}
+
+int Thread::GetDelay() {
+  CritScope cs(&crit_);
+
+  if (!messages_.empty())
+    return 0;
+
+  if (!delayed_messages_.empty()) {
+    int delay = TimeUntil(delayed_messages_.top().run_time_ms_);
+    if (delay < 0)
+      delay = 0;
+    return delay;
+  }
+
+  return kForever;
+}
+
+void Thread::ClearInternal(MessageHandler* phandler,
+                           uint32_t id,
+                           MessageList* removed) {
+  // Remove messages with phandler
+
+  if (fPeekKeep_ && msgPeek_.Match(phandler, id)) {
+    if (removed) {
+      removed->push_back(msgPeek_);
+    } else {
+      delete msgPeek_.pdata;
+    }
+    fPeekKeep_ = false;
+  }
+
+  // Remove from ordered message queue
+
+  for (MessageList::iterator it = messages_.begin(); it != messages_.end();) {
+    if (it->Match(phandler, id)) {
+      if (removed) {
+        removed->push_back(*it);
+      } else {
+        delete it->pdata;
+      }
+      it = messages_.erase(it);
+    } else {
+      ++it;
+    }
+  }
+
+  // Remove from priority queue. Not directly iterable, so use this approach
+
+  PriorityQueue::container_type::iterator new_end = delayed_messages_.container().begin();
+  for (PriorityQueue::container_type::iterator it = new_end;
+       it != delayed_messages_.container().end(); ++it) {
+    if (it->msg_.Match(phandler, id)) {
+      if (removed) {
+        removed->push_back(it->msg_);
+      } else {
+        delete it->msg_.pdata;
+      }
+    } else {
+      *new_end++ = *it;
+    }
+  }
+  delayed_messages_.container().erase(new_end,
+                                      delayed_messages_.container().end());
+  delayed_messages_.reheap();
+}
+
+void Thread::Dispatch(Message* pmsg) {
+  int64_t start_time = TimeMillis();
+  pmsg->phandler->OnMessage(pmsg);
+  int64_t end_time = TimeMillis();
+  int64_t diff = TimeDiff(end_time, start_time);
+  if (diff >= dispatch_warning_ms_) {
+    /* RTC_LOG(LS_INFO) << "Message to " << name() << " took " << diff
+                     << "ms to dispatch. Posted from: "
+                     << pmsg->posted_from.ToString(); */
+    // To avoid log spew, move the warning limit to only give warning
+    // for delays that are larger than the one observed.
+    dispatch_warning_ms_ = diff + 1;
+  }
 }
 
 bool Thread::IsCurrent() const {
@@ -155,14 +557,25 @@ bool Thread::SetName(const std::string& name, const void* obj) {
 
   name_ = name;
   if (obj) {
-    char buf[16];
+    // The %p specifier typically produce at most 16 hex digits, possibly with a
+    // 0x prefix. But format is implementation defined, so add some margin.
+    char buf[30];
     snprintf(buf, sizeof(buf), " 0x%p", obj);
     name_ += buf;
   }
   return true;
 }
 
-bool Thread::Start(Runnable* runnable) {
+void Thread::SetDispatchWarningMs(int deadline) {
+  if (!IsCurrent()) {
+    /* PostTask(webrtc::ToQueuedTask(
+        [this, deadline]() { SetDispatchWarningMs(deadline); })); */
+    return;
+  }
+  dispatch_warning_ms_ = deadline;
+}
+
+bool Thread::Start() {
   RTC_DCHECK(!IsRunning());
 
   if (IsRunning())
@@ -176,11 +589,8 @@ bool Thread::Start(Runnable* runnable) {
 
   owned_ = true;
 
-  ThreadInit* init = new ThreadInit;
-  init->thread = this;
-  init->runnable = runnable;
 #if defined(WEBRTC_WIN)
-  thread_ = CreateThread(nullptr, 0, PreRun, init, 0, &thread_id_);
+  thread_ = CreateThread(nullptr, 0, PreRun, this, 0, &thread_id_);
   if (!thread_) {
     return false;
   }
@@ -188,7 +598,7 @@ bool Thread::Start(Runnable* runnable) {
   pthread_attr_t attr;
   pthread_attr_init(&attr);
 
-  int error_code = pthread_create(&thread_, &attr, PreRun, init);
+  int error_code = pthread_create(&thread_, &attr, PreRun, this);
   if (0 != error_code) {
     /* RTC_LOG(LS_ERROR) << "Unable to create pthread, error " << error_code; */
     thread_ = 0;
@@ -252,22 +662,18 @@ DWORD WINAPI Thread::PreRun(LPVOID pv) {
 #else
 void* Thread::PreRun(void* pv) {
 #endif
-  ThreadInit* init = static_cast<ThreadInit*>(pv);
-  ThreadManager::Instance()->SetCurrentThread(init->thread);
-  rtc::SetCurrentThreadName(init->thread->name_.c_str());
-  if (init->runnable) {
-    init->runnable->Run(init->thread);
-  } else {
-    init->thread->Run();
-  }
+  Thread* thread = static_cast<Thread*>(pv);
+  ThreadManager::Instance()->SetCurrentThread(thread);
+  rtc::SetCurrentThreadName(thread->name_.c_str());
+  thread->Run();
+
   ThreadManager::Instance()->SetCurrentThread(nullptr);
-  delete init;
 #if defined(WEBRTC_WIN)
   return 0;
 #else
   return nullptr;
 #endif
-}
+}  // namespace rtc
 
 void Thread::Run() {
   ProcessMessages(kForever);
@@ -279,7 +685,7 @@ bool Thread::IsOwned() {
 }
 
 void Thread::Stop() {
-  MessageQueue::Quit();
+  Thread::Quit();
   Join();
 }
 
@@ -287,6 +693,7 @@ void Thread::Send(const Location& posted_from,
                   MessageHandler* phandler,
                   uint32_t id,
                   MessageData* pdata) {
+  RTC_DCHECK(!IsQuitting());
   if (IsQuitting())
     return;
 
@@ -299,9 +706,11 @@ void Thread::Send(const Location& posted_from,
   msg.message_id = id;
   msg.pdata = pdata;
   if (IsCurrent()) {
-    phandler->OnMessage(&msg);
+    msg.phandler->OnMessage(&msg);
     return;
   }
+
+#if 1
 
   AutoThread thread;
   Thread *current_thread = Thread::Current();
@@ -347,8 +756,62 @@ void Thread::Send(const Location& posted_from,
   if (waited) {
     current_thread->socketserver()->WakeUp();
   }
+
+#else
+  Thread* current_thread = Thread::Current();
+
+  // Perhaps down the line we can get rid of this workaround and always require
+  // current_thread to be valid when Send() is called.
+  std::unique_ptr<rtc::Event> done_event;
+  if (!current_thread)
+    done_event.reset(new rtc::Event());
+
+  bool ready = false;
+  PostTask(webrtc::ToQueuedTask(
+      [&msg]() mutable { msg.phandler->OnMessage(&msg); },
+      [this, &ready, current_thread, done = done_event.get()] {
+        if (current_thread) {
+          CritScope cs(&crit_);
+          ready = true;
+          current_thread->socketserver()->WakeUp();
+        } else {
+          done->Set();
+        }
+      }));
+
+  if (current_thread) {
+    bool waited = false;
+    crit_.Enter();
+    while (!ready) {
+      crit_.Leave();
+      current_thread->socketserver()->Wait(kForever, false);
+      waited = true;
+      crit_.Enter();
+    }
+    crit_.Leave();
+
+    // Our Wait loop above may have consumed some WakeUp events for this
+    // Thread, that weren't relevant to this Send.  Losing these WakeUps can
+    // cause problems for some SocketServers.
+    //
+    // Concrete example:
+    // Win32SocketServer on thread A calls Send on thread B.  While processing
+    // the message, thread B Posts a message to A.  We consume the wakeup for
+    // that Post while waiting for the Send to complete, which means that when
+    // we exit this loop, we need to issue another WakeUp, or else the Posted
+    // message won't be processed in a timely manner.
+
+    if (waited) {
+      current_thread->socketserver()->WakeUp();
+    }
+  } else {
+    done_event->Wait(rtc::Event::kForever);
+  }
+
+#endif
 }
 
+#if 1
 void Thread::ReceiveSends() {
   ReceiveSendsFromThread(nullptr);
 }
@@ -386,41 +849,22 @@ bool Thread::PopSendMessageFromThread(const Thread* source, _SendMessage* msg) {
   return false;
 }
 
-/* void Thread::InvokeInternal(const Location& posted_from,
-                            MessageHandler* handler) {
-  TRACE_EVENT2("webrtc", "Thread::Invoke", "src_file_and_line",
-               posted_from.file_and_line(), "src_func",
-               posted_from.function_name());
-  Send(posted_from, handler);
+#endif
+
+/* void Thread::Delete() {
+  Stop();
+  delete this;
 } */
+
+bool Thread::IsProcessingMessages() {
+  return (owned_ || IsCurrent()) && !IsQuitting();
+}
 
 void Thread::Clear(MessageHandler* phandler,
                    uint32_t id,
                    MessageList* removed) {
   CritScope cs(&crit_);
-
-  // Remove messages on sendlist_ with phandler
-  // Object target cleared: remove from send list, wakeup/set ready
-  // if sender not null.
-
-  std::list<_SendMessage>::iterator iter = sendlist_.begin();
-  while (iter != sendlist_.end()) {
-    _SendMessage smsg = *iter;
-    if (smsg.msg.Match(phandler, id)) {
-      if (removed) {
-        removed->push_back(smsg.msg);
-      } else {
-        delete smsg.msg.pdata;
-      }
-      iter = sendlist_.erase(iter);
-      *smsg.ready = true;
-      smsg.thread->socketserver()->WakeUp();
-      continue;
-    }
-    ++iter;
-  }
-
-  MessageQueue::Clear(phandler, id, removed);
+  ClearInternal(phandler, id, removed);
 }
 
 bool Thread::ProcessMessages(int cmsLoop) {
@@ -477,8 +921,13 @@ bool Thread::IsRunning() {
 #endif
 }
 
-AutoThread::AutoThread() : Thread(SocketServer::CreateDefault()) {
+AutoThread::AutoThread()
+    : Thread(SocketServer::CreateDefault(), /*do_init=*/false) {
   if (!ThreadManager::Instance()->CurrentThread()) {
+    // DoInit registers with ThreadManager. Do that only if we intend to
+    // be rtc::Thread::Current(), otherwise ProcessAllMessageQueuesInternal will
+    // post a message to a queue that no running thread is serving.
+    DoInit();
     ThreadManager::Instance()->SetCurrentThread(this);
   }
 }
@@ -492,14 +941,15 @@ AutoThread::~AutoThread() {
 }
 
 AutoSocketServerThread::AutoSocketServerThread(SocketServer* ss)
-    : Thread(ss) {
+    : Thread(ss, /*do_init=*/false) {
+  DoInit();
   old_thread_ = ThreadManager::Instance()->CurrentThread();
   // Temporarily set the current thread to nullptr so that we can keep checks
   // around that catch unintentional pointer overwrites.
   rtc::ThreadManager::Instance()->SetCurrentThread(nullptr);
   rtc::ThreadManager::Instance()->SetCurrentThread(this);
   if (old_thread_) {
-    MessageQueueManager::Remove(old_thread_);
+    ThreadManager::Remove(old_thread_);
   }
 }
 
@@ -511,7 +961,7 @@ AutoSocketServerThread::~AutoSocketServerThread() {
   // cricket::Connection::Destroy.
   ProcessMessages(0);
   // Stop and destroy the thread before clearing it as the current thread.
-  // Sometimes there are messages left in the MessageQueue that will be
+  // Sometimes there are messages left in the Thread that will be
   // destroyed by DoDestroy, and sometimes the destructors of the message and/or
   // its contents rely on this thread still being set as the current thread.
   Stop();
@@ -519,7 +969,7 @@ AutoSocketServerThread::~AutoSocketServerThread() {
   rtc::ThreadManager::Instance()->SetCurrentThread(nullptr);
   rtc::ThreadManager::Instance()->SetCurrentThread(old_thread_);
   if (old_thread_) {
-    MessageQueueManager::Add(old_thread_);
+    ThreadManager::Add(old_thread_);
   }
 }
 

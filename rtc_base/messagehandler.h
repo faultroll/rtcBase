@@ -11,7 +11,6 @@
 #ifndef RTC_BASE_MESSAGEHANDLER_H_
 #define RTC_BASE_MESSAGEHANDLER_H_
 
-#include <memory>
 #include <utility>
 
 #include "rtc_base/constructormagic.h"
@@ -20,8 +19,12 @@ namespace rtc {
 
 struct Message;
 
-// Messages get dispatched to a MessageHandler
-
+// MessageQueue/Thread Messages get dispatched via the MessageHandler interface.
+// Warning: Provided for backwards compatibility.
+//
+// This class performs expensive cleanup in the dtor that will affect all
+// instances of Thread (and their pending message queues) and will block the
+// current thread as well as all other threads.
 class MessageHandler {
  public:
   virtual ~MessageHandler();

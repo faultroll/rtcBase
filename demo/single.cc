@@ -18,7 +18,7 @@ public:
         MSG_HELP,
     };
 
-    void Help(const std::string &info)
+    void Help(const std::string info)
     {
         HelpData *data = new HelpData;
         data->info_ = info;

@@ -18,11 +18,11 @@ public:
         MSG_HELP,
     };
 
-    void Help(rtc::Thread &targetThread, const std::string &info)
+    void Help(rtc::Thread *targetThread, const std::string info)
     {
         HelpData *data = new HelpData;
         data->info_ = info;
-        targetThread.Post(RTC_FROM_HERE, this, MSG_HELP, data);
+        targetThread->Post(RTC_FROM_HERE, this, MSG_HELP, data);
     }
 
     virtual void OnMessage(rtc::Message *msg)
@@ -40,10 +40,10 @@ int main(void)
 {
     std::cout << "Test Multi-thread is started" << std::endl;
     Police p;
-    rtc::Thread thread;
-    thread.Start();
+    std::unique_ptr<rtc::Thread> thread = rtc::Thread::Create();
+    thread->Start();
 
-    p.Help(thread, "Please help me!");
+    p.Help(thread.get(), "Please help me!");
     rtc::Thread::Current()->SleepMs(100);
     std::cout << "Test Multi-thread is completed" << std::endl;
 
