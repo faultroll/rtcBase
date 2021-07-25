@@ -152,12 +152,10 @@ class RTC_LOCKABLE Thread {
                    int cmsWait = kForever,
                    bool process_io = true);
   virtual bool Peek(Message* pmsg, int cmsWait = 0);
-  // |time_sensitive| is deprecated and should always be false.
   virtual void Post(const Location& posted_from,
                     MessageHandler* phandler,
                     uint32_t id = 0,
-                    MessageData* pdata = nullptr,
-                    bool time_sensitive = false);
+                    MessageData* pdata = nullptr);
   virtual void PostDelayed(const Location& posted_from,
                            int delay_ms,
                            MessageHandler* phandler,
@@ -333,7 +331,7 @@ class RTC_LOCKABLE Thread {
   // Return true if the thread is currently running.
   bool IsRunning();
 
-#if 1
+#if 0 /* defined(USING_SENDLIST) */
   struct _SendMessage {
     _SendMessage() {}
     Thread *thread;
@@ -357,7 +355,29 @@ class RTC_LOCKABLE Thread {
 
   std::list<_SendMessage> sendlist_;
 
-#endif
+#else
+  class _SendMessage final : public rtc::MessageData {
+   public:
+    Thread *thread;
+    Message msg;
+    bool *ready;
+    Event *done;
+    CriticalSection *crit;
+  };
+
+  class QueuedTaskHandler final : public MessageHandler {
+   public:
+    enum Operation {
+      kSend,
+    };
+    QueuedTaskHandler() {}
+    void OnMessage(Message* msg) override;
+  };
+
+  // Runs webrtc::QueuedTask posted to the Thread.
+  QueuedTaskHandler queued_task_handler_;
+
+#endif /* defined(USING_SENDLIST) */
 
   bool fPeekKeep_;
   Message msgPeek_;
@@ -393,8 +413,8 @@ class RTC_LOCKABLE Thread {
   // Must only be modified when the worker thread is not running.
   bool owned_ = true;
 
-  // Only touched from the worker thread itself.
-  bool blocking_calls_allowed_ = true;
+  /* // Only touched from the worker thread itself.
+  bool blocking_calls_allowed_ = true; */
 
   friend class ThreadManager;
 
@@ -402,7 +422,7 @@ class RTC_LOCKABLE Thread {
 
   RTC_DISALLOW_COPY_AND_ASSIGN(Thread);
 };
-
+#if 0 /* defined(USING_SENDLIST) */
 // AutoThread automatically installs itself at construction
 // uninstalls at destruction, if a Thread object is
 // _not already_ associated with the current OS thread.
@@ -434,6 +454,7 @@ class AutoSocketServerThread : public Thread {
   RTC_DISALLOW_COPY_AND_ASSIGN(AutoSocketServerThread);
 };
 
+#endif /* defined(USING_SENDLIST) */
 }  // namespace rtc
 
 #endif  // RTC_BASE_THREAD_H_

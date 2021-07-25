@@ -365,9 +365,7 @@ bool Thread::Get(Message* pmsg, int cmsWait, bool process_io) {
 void Thread::Post(const Location& posted_from,
                   MessageHandler* phandler,
                   uint32_t id,
-                  MessageData* pdata,
-                  bool time_sensitive) {
-  RTC_DCHECK(!time_sensitive);
+                  MessageData* pdata) {
   if (IsQuitting()) {
     delete pdata;
     return;
@@ -639,7 +637,7 @@ void Thread::Join() {
     return;
 
   RTC_DCHECK(!IsCurrent());
-  if (Current() && !Current()->blocking_calls_allowed_) {
+  if (Current() /* && !Current()->blocking_calls_allowed_ */) {
     /* RTC_LOG(LS_WARNING) << "Waiting for the thread to join, "
                         << "but blocking calls have been disallowed"; */
   }
@@ -710,8 +708,7 @@ void Thread::Send(const Location& posted_from,
     return;
   }
 
-#if 1
-
+#if 0 /* defined(USING_SENDLIST) */
   AutoThread thread;
   Thread *current_thread = Thread::Current();
   RTC_DCHECK(current_thread != nullptr);  // AutoThread ensures this
@@ -767,7 +764,7 @@ void Thread::Send(const Location& posted_from,
     done_event.reset(new rtc::Event());
 
   bool ready = false;
-  PostTask(webrtc::ToQueuedTask(
+  /* PostTask(webrtc::ToQueuedTask(
       [&msg]() mutable { msg.phandler->OnMessage(&msg); },
       [this, &ready, current_thread, done = done_event.get()] {
         if (current_thread) {
@@ -777,7 +774,16 @@ void Thread::Send(const Location& posted_from,
         } else {
           done->Set();
         }
-      }));
+      })); */
+  _SendMessage *smsg = new _SendMessage;
+  smsg->thread = current_thread;
+  smsg->msg = msg;
+  smsg->ready = &ready;
+  smsg->done = done_event.get();
+  smsg->crit = &crit_;
+  // Though Post takes MessageData by raw pointer (last parameter), it still
+  // takes it with ownership.
+  Post(RTC_FROM_HERE, &queued_task_handler_, /*id=*/0, smsg);
 
   if (current_thread) {
     bool waited = false;
@@ -808,10 +814,10 @@ void Thread::Send(const Location& posted_from,
     done_event->Wait(rtc::Event::kForever);
   }
 
-#endif
+#endif /* defined(USING_SENDLIST) */
 }
 
-#if 1
+#if 0 /* defined(USING_SENDLIST) */
 void Thread::ReceiveSends() {
   ReceiveSendsFromThread(nullptr);
 }
@@ -849,7 +855,35 @@ bool Thread::PopSendMessageFromThread(const Thread* source, _SendMessage* msg) {
   return false;
 }
 
-#endif
+#else
+void Thread::QueuedTaskHandler::OnMessage(Message* msg) {
+  RTC_DCHECK(msg);
+  /* auto* data = static_cast<ScopedMessageData<webrtc::QueuedTask>*>(msg->pdata);
+  std::unique_ptr<webrtc::QueuedTask> task = std::move(data->data()); */
+  switch (msg->message_id) {
+    case kSend:
+      _SendMessage *smsg = (_SendMessage *)msg->pdata;
+      smsg->msg.phandler->OnMessage(&smsg->msg);
+      if (smsg->thread) {
+        CritScope cs(smsg->crit);
+        *smsg->ready = true;
+        smsg->thread->socketserver()->WakeUp();
+      } else {
+        smsg->done->Set();
+      }
+      break;
+  }
+  // Thread expects handler to own Message::pdata when OnMessage is called
+  // Since MessageData is no longer needed, delete it.
+  delete msg->pdata;
+
+  /* // QueuedTask interface uses Run return value to communicate who owns the
+  // task. false means QueuedTask took the ownership.
+  if (!task->Run())
+    task.release(); */
+}
+
+#endif /* defined(USING_SENDLIST) */
 
 /* void Thread::Delete() {
   Stop();
@@ -920,7 +954,7 @@ bool Thread::IsRunning() {
   return thread_ != 0;
 #endif
 }
-
+#if 0
 AutoThread::AutoThread()
     : Thread(SocketServer::CreateDefault(), /*do_init=*/false) {
   if (!ThreadManager::Instance()->CurrentThread()) {
@@ -973,4 +1007,5 @@ AutoSocketServerThread::~AutoSocketServerThread() {
   }
 }
 
+#endif /* defined(USING_SENDLIST) */
 }  // namespace rtc
