@@ -47,4 +47,9 @@ rtc::AsyncSocket* NullSocketServer::CreateAsyncSocket(int /* family */,
   return nullptr;
 }
 
+// From rtc_base/physicalsocketserver.cc
+std::unique_ptr<SocketServer> SocketServer::CreateDefault() {
+  return std::unique_ptr<SocketServer>(new rtc::NullSocketServer);
+}
+
 }  // namespace rtc

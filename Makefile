@@ -15,10 +15,11 @@ cflags  := -I. -DNDEBUG -DWEBRTC_POSIX # -DWEBRTC_WIN
 ldflags := 
 
 targets := lib$(name).so lib$(name).a
-all : $(targets)
+demos   := single.elf multi.elf
+all : $(targets) $(demos)
 
 clean : 
-	rm -f $(targets)
+	rm -f $(targets) $(demos)
 	rm -f $(objs) $(deps)
 
 lib$(name).so : $(objs)
@@ -37,3 +38,6 @@ lib$(name).a : $(objs)
 	$(info $(cxx) -c $(notdir $<) -o $(notdir $@))
 
 -include $(deps)
+
+%.elf : demo/%.o lib$(name).a
+	@$(cxx) -Wl,--gc-sections -Wl,--as-needed -Wl,--export-dynamic $(ldflags) $^ -o $@ $(libs)
