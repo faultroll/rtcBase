@@ -30,7 +30,7 @@ NO_RETURN void rtc_FatalMessage(const char* file, int line, const char* msg);
 }  // extern "C"
 #endif
 
-#ifdef __cplusplus
+#if 0 // #ifdef __cplusplus
 // C++ version.
 
 #include <sstream>
@@ -254,6 +254,8 @@ inline T CheckedDivExact(T a, T b) {
 }  // namespace rtc
 
 #else  // __cplusplus not defined
+
+
 // C version. Lacks many features compared to the C++ version, but usage
 // guidelines are the same.
 
@@ -284,6 +286,11 @@ inline T CheckedDivExact(T a, T b) {
 #define RTC_DCHECK_LT(a, b) RTC_DCHECK((a) < (b))
 #define RTC_DCHECK_GE(a, b) RTC_DCHECK((a) >= (b))
 #define RTC_DCHECK_GT(a, b) RTC_DCHECK((a) > (b))
+
+#define RTC_UNREACHABLE_CODE_HIT false
+#define RTC_NOTREACHED() RTC_DCHECK(RTC_UNREACHABLE_CODE_HIT)
+
+#define RTC_FATAL() rtc_FatalMessage(__FILE__, __LINE__, "FATAL")
 
 #endif  // __cplusplus
 

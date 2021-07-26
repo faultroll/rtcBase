@@ -50,7 +50,7 @@ ThreadManager* ThreadManager::Instance() {
 
 ThreadManager::~ThreadManager() {
   // By above RTC_DEFINE_STATIC_LOCAL.
-  RTC_NOTREACHED() << "ThreadManager should never be destructed.";
+  RTC_NOTREACHED() /* << "ThreadManager should never be destructed." */;
 }
 
 // static
@@ -111,35 +111,19 @@ Thread* Thread::Current() {
   return thread;
 }
 
-#if defined(WEBRTC_POSIX)
-ThreadManager::ThreadManager() : main_thread_ref_(CurrentThreadRef()) {
-  pthread_key_create(&key_, nullptr);
-}
-
-Thread* ThreadManager::CurrentThread() {
-  return static_cast<Thread*>(pthread_getspecific(key_));
-}
-
-void ThreadManager::SetCurrentThreadInternal(Thread* thread) {
-  pthread_setspecific(key_, thread);
-}
-#endif
-
-#if defined(WEBRTC_WIN)
 ThreadManager::ThreadManager()
-    : key_(TlsAlloc()), main_thread_ref_(CurrentThreadRef()) {}
+    : key_(AllocTls()), main_thread_ref_(CurrentThreadRef()) {}
 
 Thread* ThreadManager::CurrentThread() {
-  return static_cast<Thread*>(TlsGetValue(key_));
+  return static_cast<Thread*>(GetTlsValue(key_));
 }
 
 void ThreadManager::SetCurrentThreadInternal(Thread* thread) {
-  TlsSetValue(key_, thread);
+  SetTlsValue(key_, thread);
 }
-#endif
 
 void ThreadManager::SetCurrentThread(Thread* thread) {
-#if 0 // RTC_DLOG_IS_ON
+#if 0 // RTC_DLOG_IS_ON // TODO logs using checks (FatalMessage is Logging with abort)
   if (CurrentThread() && thread) {
     /* RTC_DLOG(LS_ERROR) << "SetCurrentThread: Overwriting an existing value?"; */
   }
@@ -770,7 +754,7 @@ void Thread::Send(const Location& posted_from,
   // current_thread to be valid when Send() is called.
   std::unique_ptr<rtc::Event> done_event;
   if (!current_thread)
-    done_event.reset(new rtc::Event());
+    done_event.reset(new rtc::Event(false, false));
 
   bool ready = false;
   /* PostTask(webrtc::ToQueuedTask(

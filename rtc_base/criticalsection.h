@@ -18,6 +18,12 @@
 #include "rtc_base/thread_annotations.h"
 #include "typedefs.h"  // NOLINT(build/include)
 
+#if !defined(NDEBUG) || defined(DCRIT_ALWAYS_ON)
+#define RTC_DCRIT_IS_ON 1
+#else
+#define RTC_DCRIT_IS_ON 0
+#endif
+
 #if defined(WEBRTC_WIN)
 // Include winsock2.h before including <windows.h> to maintain consistency with
 // win32.h.  We can't include win32.h directly here since it pulls in
@@ -32,13 +38,11 @@
 #include <pthread.h>
 #endif
 
-#define CS_DEBUG_CHECKS RTC_DCHECK_IS_ON
-
-#if CS_DEBUG_CHECKS
+#if RTC_DCRIT_IS_ON
 #define CS_DEBUG_CODE(x) x
-#else  // CS_DEBUG_CHECKS
+#else  // RTC_DCRIT_IS_ON
 #define CS_DEBUG_CODE(x)
-#endif  // CS_DEBUG_CHECKS
+#endif  // RTC_DCRIT_IS_ON
 
 namespace rtc {
 
@@ -62,10 +66,10 @@ class RTC_LOCKABLE CriticalSection {
   mutable CRITICAL_SECTION crit_;
 #elif defined(WEBRTC_POSIX)
   mutable pthread_mutex_t mutex_;
-# if CS_DEBUG_CHECKS
+# if RTC_DCRIT_IS_ON
   mutable PlatformThreadRef thread_;  // Only used by RTC_DCHECKs.
   mutable int recursion_count_;       // Only used by RTC_DCHECKs.
-# endif  // CS_DEBUG_CHECKS
+# endif  // RTC_DCRIT_IS_ON
 #else  // !defined(WEBRTC_WIN) && !defined(WEBRTC_POSIX)
 # error Unsupported platform.
 #endif

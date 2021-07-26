@@ -26,10 +26,7 @@ class Event {
  public:
   static const int kForever = -1;
 
-  Event();
   Event(bool manual_reset, bool initially_signaled);
-  Event(const Event&) = delete;
-  Event& operator=(const Event&) = delete;
   ~Event();
 
   void Set();
@@ -49,7 +46,7 @@ class Event {
   bool event_status_;
 #endif
 
-  // RTC_DISALLOW_IMPLICIT_CONSTRUCTORS(Event);
+  RTC_DISALLOW_IMPLICIT_CONSTRUCTORS(Event);
 };
 
 }  // namespace rtc

@@ -14,6 +14,9 @@
 #ifndef TYPEDEFS_H_
 #define TYPEDEFS_H_
 
+// TODO Put macros without RTC_ here, all macros be RTC_XXX except here
+// eg. DCHECK_ALWAYS_ON DCRIT_ALWAYS_ON DLOG_ALWAYS_ON NDEBUG ...
+
 #ifndef NO_RETURN
 // Annotate a function that will not return control flow to the caller.
 #if defined(_MSC_VER)

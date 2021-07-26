@@ -23,9 +23,11 @@ namespace rtc {
 #if defined(WEBRTC_WIN)
 typedef DWORD PlatformThreadId;
 typedef DWORD PlatformThreadRef;
+typedef const DWORD PlatformTlsKey;
 #elif defined(WEBRTC_POSIX)
 typedef pid_t PlatformThreadId;
 typedef pthread_t PlatformThreadRef;
+typedef pthread_key_t PlatformTlsKey;
 #endif
 
 // Retrieve the ID of the current thread.
@@ -41,6 +43,15 @@ bool IsThreadRefEqual(const PlatformThreadRef& a, const PlatformThreadRef& b);
 
 // Sets the current thread name.
 void SetCurrentThreadName(const char* name);
+
+// Create a TLS(Thread Local Storage)
+PlatformTlsKey AllocTls();
+
+// Get the value of key
+void *GetTlsValue(PlatformTlsKey key);
+
+// Set the value of key
+void SetTlsValue(PlatformTlsKey key, const void *value);
 
 }  // namespace rtc
 

@@ -14,6 +14,8 @@
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
+#include <sstream>
+#include <string>
 
 #if defined(WEBRTC_WIN)
 #include <windows.h>
@@ -21,8 +23,6 @@
 
 #if defined(WEBRTC_WIN)
 #define LAST_SYSTEM_ERROR (::GetLastError())
-#elif defined(__native_client__) && __native_client__
-#define LAST_SYSTEM_ERROR (0)
 #elif defined(WEBRTC_POSIX)
 #include <errno.h>
 #define LAST_SYSTEM_ERROR (errno)
@@ -57,6 +57,24 @@ void PrintError(const char* format, ...) {
 
 }  // namespace
 
+#if 1 // #if !defined(__cplusplus)
+// Like a stripped-down LogMessage from logging.h, except that it aborts.
+class FatalMessage {
+ public:
+  FatalMessage(const char* file, int line);
+  // Used for RTC_CHECK_EQ(), etc. Takes ownership of the given string.
+  FatalMessage(const char* file, int line, std::string* result);
+  NO_RETURN ~FatalMessage();
+
+  std::ostream& stream() { return stream_; }
+
+ private:
+  void Init(const char* file, int line);
+
+  std::ostringstream stream_;
+};
+#endif
+
 FatalMessage::FatalMessage(const char* file, int line) {
   Init(file, line);
 }
@@ -85,6 +103,7 @@ void FatalMessage::Init(const char* file, int line) {
           << "# ";
 }
 
+#if 0 // #if defined(__cplusplus)
 // MSVC doesn't like complex extern templates and DLLs.
 #if !defined(COMPILER_MSVC)
 // Explicit instantiations for commonly used comparisons.
@@ -98,6 +117,7 @@ template std::string* MakeCheckOpString<unsigned int, unsigned long>(
     const unsigned int&, const unsigned long&, const char* names);
 template std::string* MakeCheckOpString<std::string, std::string>(
     const std::string&, const std::string&, const char* name);
+#endif
 #endif
 
 }  // namespace rtc

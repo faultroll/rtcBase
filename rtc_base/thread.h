@@ -79,13 +79,7 @@ class ThreadManager {
   CriticalSection crit_;
   size_t processing_ RTC_GUARDED_BY(crit_) = 0;
 
-#if defined(WEBRTC_POSIX)
-  pthread_key_t key_;
-#endif
-
-#if defined(WEBRTC_WIN)
-  const DWORD key_;
-#endif
+  PlatformTlsKey key_;
 
   // The thread to potentially autowrap.
   const PlatformThreadRef main_thread_ref_;

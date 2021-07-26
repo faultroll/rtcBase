@@ -12,12 +12,12 @@
 #define RTC_BASE_TIMEUTILS_H_
 
 #include <stdint.h>
-#include <time.h>
+// #include <time.h>
 
-#include <ctime>
-#include <string>
+// #include <ctime>
+// #include <string>
 
-#include "rtc_base/checks.h"
+// #include "rtc_base/checks.h"
 
 namespace rtc {
 
@@ -32,20 +32,20 @@ static const int64_t kNumNanosecsPerMillisec =
 static const int64_t kNumNanosecsPerMicrosec =
     kNumNanosecsPerSec / kNumMicrosecsPerSec;
 
-// Returns the actual system time, even if a clock is set for testing.
+/* // Returns the actual system time, even if a clock is set for testing.
 // Useful for timeouts while using a test clock, or for logging.
 int64_t SystemTimeNanos();
-int64_t SystemTimeMillis();
+int64_t SystemTimeMillis(); */
 
-// Returns the current time in milliseconds in 32 bits.
-uint32_t Time32();
+/* // Returns the current time in milliseconds in 32 bits.
+uint32_t Time32(); */
 
 // Returns the current time in milliseconds in 64 bits.
 int64_t TimeMillis();
-// Deprecated. Do not use this in any new code.
+/* // Deprecated. Do not use this in any new code.
 inline int64_t Time() {
   return TimeMillis();
-}
+} */
 
 // Returns the current time in microseconds.
 int64_t TimeMicros();
@@ -60,7 +60,7 @@ int64_t TimeAfter(int64_t elapsed);
 // Number of milliseconds that would elapse between 'earlier' and 'later'
 // timestamps.  The value is negative if 'later' occurs before 'earlier'.
 int64_t TimeDiff(int64_t later, int64_t earlier);
-int32_t TimeDiff32(uint32_t later, uint32_t earlier);
+/* int32_t TimeDiff32(uint32_t later, uint32_t earlier); */
 
 // The number of milliseconds that have elapsed since 'earlier'.
 inline int64_t TimeSince(int64_t earlier) {
@@ -72,7 +72,7 @@ inline int64_t TimeUntil(int64_t later) {
   return later - TimeMillis();
 }
 
-class TimestampWrapAroundHandler {
+/* class TimestampWrapAroundHandler {
  public:
   TimestampWrapAroundHandler();
 
@@ -124,7 +124,7 @@ class IntervalRange {
  private:
   int min_;
   int max_;
-};
+}; */
 
 }  // namespace rtc
 

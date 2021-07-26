@@ -9,6 +9,7 @@
  */
 
 #include <stdint.h>
+#include <time.h>
 
 #if defined(WEBRTC_POSIX)
 #include <sys/time.h>
@@ -70,9 +71,9 @@ int64_t TimeNanos() {
   return SystemTimeNanos();
 }
 
-uint32_t Time32() {
+/* uint32_t Time32() {
   return static_cast<uint32_t>(TimeNanos() / kNumNanosecsPerMillisec);
-}
+} */
 
 int64_t TimeMillis() {
   return TimeNanos() / kNumNanosecsPerMillisec;
@@ -87,15 +88,15 @@ int64_t TimeAfter(int64_t elapsed) {
   return TimeMillis() + elapsed;
 }
 
-int32_t TimeDiff32(uint32_t later, uint32_t earlier) {
+/* int32_t TimeDiff32(uint32_t later, uint32_t earlier) {
   return later - earlier;
-}
+} */
 
 int64_t TimeDiff(int64_t later, int64_t earlier) {
   return later - earlier;
 }
 
-TimestampWrapAroundHandler::TimestampWrapAroundHandler()
+/* TimestampWrapAroundHandler::TimestampWrapAroundHandler()
     : last_ts_(0), num_wrap_(-1) {}
 
 int64_t TimestampWrapAroundHandler::Unwrap(uint32_t ts) {
@@ -176,6 +177,6 @@ int64_t TimeUTCMicros() {
   return (static_cast<int64_t>(time.time) * rtc::kNumMicrosecsPerSec +
           static_cast<int64_t>(time.millitm) * rtc::kNumMicrosecsPerMillisec);
 #endif
-}
+} */
 
 } // namespace rtc

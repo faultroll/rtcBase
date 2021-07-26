@@ -71,4 +71,36 @@ void SetCurrentThreadName(const char* name) {
 #endif  // defined(WEBRTC_WIN)
 }
 
+// Create a TLS(Thread Local Storage)
+PlatformTlsKey AllocTls()
+{
+  PlatformTlsKey key;
+#if defined(WEBRTC_WIN)
+  key = TlsAlloc();
+#elif defined(WEBRTC_POSIX)
+  pthread_key_create(&key, nullptr);
+#endif  // defined(WEBRTC_WIN)
+  return key;
+}
+
+// Get the value of key
+void *GetTlsValue(PlatformTlsKey key)
+{
+#if defined(WEBRTC_WIN)
+  return TlsGetValue(key);
+#elif defined(WEBRTC_POSIX)
+  return pthread_getspecific(key);
+#endif  // defined(WEBRTC_WIN)
+}
+
+// Set the value of key
+void SetTlsValue(PlatformTlsKey key, const void *value)
+{
+#if defined(WEBRTC_WIN)
+  TlsSetValue(key, value);
+#elif defined(WEBRTC_POSIX)
+  pthread_setspecific(key, value);
+#endif  // defined(WEBRTC_WIN)
+}
+
 }  // namespace rtc

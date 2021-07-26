@@ -50,7 +50,7 @@ void CriticalSection::Enter() const RTC_EXCLUSIVE_LOCK_FUNCTION() {
 #elif defined(WEBRTC_POSIX)
   pthread_mutex_lock(&mutex_);
 
-# if CS_DEBUG_CHECKS
+# if RTC_DCRIT_IS_ON
   if (!recursion_count_) {
     RTC_DCHECK(!thread_);
     thread_ = CurrentThreadRef();
@@ -58,7 +58,7 @@ void CriticalSection::Enter() const RTC_EXCLUSIVE_LOCK_FUNCTION() {
     RTC_DCHECK(CurrentThreadIsOwner());
   }
   ++recursion_count_;
-# endif  // CS_DEBUG_CHECKS
+# endif  // RTC_DCRIT_IS_ON
 #else
 # error Unsupported platform.
 #endif
@@ -71,7 +71,7 @@ bool CriticalSection::TryEnter() const RTC_EXCLUSIVE_TRYLOCK_FUNCTION(true) {
   if (pthread_mutex_trylock(&mutex_) != 0)
     return false;
 
-# if CS_DEBUG_CHECKS
+# if RTC_DCRIT_IS_ON
   if (!recursion_count_) {
     RTC_DCHECK(!thread_);
     thread_ = CurrentThreadRef();
@@ -79,7 +79,7 @@ bool CriticalSection::TryEnter() const RTC_EXCLUSIVE_TRYLOCK_FUNCTION(true) {
     RTC_DCHECK(CurrentThreadIsOwner());
   }
   ++recursion_count_;
-# endif  // CS_DEBUG_CHECKS
+# endif  // RTC_DCRIT_IS_ON
   return true;
 #else
 # error Unsupported platform.
@@ -91,12 +91,12 @@ void CriticalSection::Leave() const RTC_UNLOCK_FUNCTION() {
 #if defined(WEBRTC_WIN)
   LeaveCriticalSection(&crit_);
 #elif defined(WEBRTC_POSIX)
-# if CS_DEBUG_CHECKS
+# if RTC_DCRIT_IS_ON
   --recursion_count_;
   RTC_DCHECK(recursion_count_ >= 0);
   if (!recursion_count_)
     thread_ = 0;
-# endif  // CS_DEBUG_CHECKS
+# endif  // RTC_DCRIT_IS_ON
 
   pthread_mutex_unlock(&mutex_);
 #else
@@ -113,11 +113,11 @@ bool CriticalSection::CurrentThreadIsOwner() const {
   return crit_.OwningThread ==
          reinterpret_cast<HANDLE>(static_cast<size_t>(GetCurrentThreadId()));
 #elif defined(WEBRTC_POSIX)
-# if CS_DEBUG_CHECKS
+# if RTC_DCRIT_IS_ON
   return IsThreadRefEqual(thread_, CurrentThreadRef());
 # else
   return true;
-# endif  // CS_DEBUG_CHECKS
+# endif  // RTC_DCRIT_IS_ON
 #else
 # error Unsupported platform.
 #endif
@@ -159,7 +159,7 @@ void GlobalLockPod::Lock() {
 
 void GlobalLockPod::Unlock() {
   int old_value = AtomicOps::CompareAndSwap(&lock_acquired, 1, 0);
-  RTC_DCHECK_EQ(1, old_value) << "Unlock called without calling Lock first";
+  RTC_DCHECK_EQ(1, old_value) /* << "Unlock called without calling Lock first" */;
 }
 
 GlobalLock::GlobalLock() {

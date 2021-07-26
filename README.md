@@ -5,5 +5,4 @@ this project extract thread utils from webrtc m66, with my own understands
 - trying to use platform_thread in thread
 
 TODOs
-- (lightweight) remove checks&safe_compare&typedefs
 - (platform_thread) using platform_thread instead of pthread
