@@ -308,11 +308,12 @@ class RTC_LOCKABLE Thread {
  private:
   static const int kSlowDispatchLoggingThreshold = 50;  // 50 ms
 
-#if defined(WEBRTC_WIN)
+/* #if defined(WEBRTC_WIN)
   static DWORD WINAPI PreRun(LPVOID context);
 #else
   static void* PreRun(void* pv);
-#endif
+#endif */
+  static void PreRun(void* pv);
 
   // ThreadManager calls this instead WrapCurrent() because
   // ThreadManager::Instance() cannot be used while ThreadManager is
@@ -399,14 +400,16 @@ class RTC_LOCKABLE Thread {
   // TODO(tommi): Add thread checks for proper use of control methods.
   // Ideally we should be able to just use PlatformThread.
 
-#if defined(WEBRTC_POSIX)
+/* #if defined(WEBRTC_POSIX)
   pthread_t thread_ = 0;
 #endif
 
 #if defined(WEBRTC_WIN)
   HANDLE thread_ = nullptr;
   DWORD thread_id_ = 0;
-#endif
+#endif */
+  std::unique_ptr<PlatformThread> thread_;
+  PlatformThreadRef thread_ref_;
 
   // Indicates whether or not ownership of the worker thread lies with
   // this instance or not. (i.e. owned_ == !wrapped).

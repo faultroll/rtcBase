@@ -181,6 +181,9 @@ Thread::Thread(SocketServer* ss, bool do_init)
       ss_(ss) {
   RTC_DCHECK(ss);
   ss_->SetMessageQueue(this);
+  thread_ = std::unique_ptr<PlatformThread>(
+      new PlatformThread(PreRun, this, "Thread"));
+  thread_ref_ = static_cast<PlatformThreadRef>(0);
   SetName("Thread", this);  // default name
   if (do_init) {
     DoInit();
@@ -580,7 +583,7 @@ bool Thread::Start() {
 
   owned_ = true;
 
-#if defined(WEBRTC_WIN)
+/* #if defined(WEBRTC_WIN)
   thread_ = CreateThread(nullptr, 0, PreRun, this, 0, &thread_id_);
   if (!thread_) {
     return false;
@@ -591,12 +594,14 @@ bool Thread::Start() {
 
   int error_code = pthread_create(&thread_, &attr, PreRun, this);
   if (0 != error_code) {
-    /* RTC_LOG(LS_ERROR) << "Unable to create pthread, error " << error_code; */
+    // RTC_LOG(LS_ERROR) << "Unable to create pthread, error " << error_code;
     thread_ = 0;
     return false;
   }
   RTC_DCHECK(thread_);
-#endif
+#endif */
+  thread_->Start();
+  thread_ref_ = thread_->GetThreadRef();
   return true;
 }
 
@@ -607,18 +612,18 @@ bool Thread::WrapCurrent() {
 void Thread::UnwrapCurrent() {
   // Clears the platform-specific thread-specific storage.
   ThreadManager::Instance()->SetCurrentThread(nullptr);
-#if defined(WEBRTC_WIN)
+/* #if defined(WEBRTC_WIN)
   if (thread_ != nullptr) {
     if (!CloseHandle(thread_)) {
-      /* RTC_LOG_GLE(LS_ERROR)
-          << "When unwrapping thread, failed to close handle."; */
+      // RTC_LOG_GLE(LS_ERROR) << "When unwrapping thread, failed to close handle.";
     }
     thread_ = nullptr;
     thread_id_ = 0;
   }
 #elif defined(WEBRTC_POSIX)
   thread_ = 0;
-#endif
+#endif */
+  thread_ref_ = static_cast<PlatformThreadRef>(0);
 }
 
 void Thread::SafeWrapCurrent() {
@@ -635,7 +640,7 @@ void Thread::Join() {
                         << "but blocking calls have been disallowed"; */
   }
 
-#if defined(WEBRTC_WIN)
+/* #if defined(WEBRTC_WIN)
   RTC_DCHECK(thread_ != nullptr);
   WaitForSingleObject(thread_, INFINITE);
   CloseHandle(thread_);
@@ -644,26 +649,29 @@ void Thread::Join() {
 #elif defined(WEBRTC_POSIX)
   pthread_join(thread_, nullptr);
   thread_ = 0;
-#endif
+#endif */
+  thread_->Stop();
+  thread_ref_ = static_cast<PlatformThreadRef>(0);
 }
 
 // static
-#if defined(WEBRTC_WIN)
+/* #if defined(WEBRTC_WIN)
 DWORD WINAPI Thread::PreRun(LPVOID pv) {
 #else
 void* Thread::PreRun(void* pv) {
-#endif
+#endif */
+void Thread::PreRun(void* pv) {
   Thread* thread = static_cast<Thread*>(pv);
   ThreadManager::Instance()->SetCurrentThread(thread);
   rtc::SetCurrentThreadName(thread->name_.c_str());
   thread->Run();
 
   ThreadManager::Instance()->SetCurrentThread(nullptr);
-#if defined(WEBRTC_WIN)
+/* #if defined(WEBRTC_WIN)
   return 0;
 #else
   return nullptr;
-#endif
+#endif */
 }  // namespace rtc
 
 void Thread::Run() {
@@ -929,13 +937,13 @@ bool Thread::WrapCurrentWithThreadManager(ThreadManager* thread_manager,
                                           bool need_synchronize_access) {
   RTC_DCHECK(!IsRunning());
 
-#if defined(WEBRTC_WIN)
+/* #if defined(WEBRTC_WIN)
   if (need_synchronize_access) {
     // We explicitly ask for no rights other than synchronization.
     // This gives us the best chance of succeeding.
     thread_ = OpenThread(SYNCHRONIZE, FALSE, GetCurrentThreadId());
     if (!thread_) {
-      /* RTC_LOG_GLE(LS_ERROR) << "Unable to get handle to thread."; */
+      // RTC_LOG_GLE(LS_ERROR) << "Unable to get handle to thread.";
       return false;
     }
     thread_id_ = GetCurrentThreadId();
@@ -943,18 +951,22 @@ bool Thread::WrapCurrentWithThreadManager(ThreadManager* thread_manager,
 #elif defined(WEBRTC_POSIX)
   RTC_UNUSED(need_synchronize_access);
   thread_ = pthread_self();
-#endif
+#endif */
+  RTC_UNUSED(need_synchronize_access); // TODO imply synchronization in PlatformThread
+  thread_ref_ = thread_->GetThreadRef();
   owned_ = false;
   thread_manager->SetCurrentThread(this);
   return true;
 }
 
 bool Thread::IsRunning() {
-#if defined(WEBRTC_WIN)
+/* #if defined(WEBRTC_WIN)
   return thread_ != nullptr;
 #elif defined(WEBRTC_POSIX)
   return thread_ != 0;
-#endif
+#endif */
+  return (thread_->IsRunning() && 
+    (thread_ref_ != static_cast<PlatformThreadRef>(0)));
 }
 
 #if 0 /* defined(USING_SENDLIST) */
