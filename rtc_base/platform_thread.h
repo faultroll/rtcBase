@@ -47,11 +47,14 @@ class PlatformThread {
  public:
   PlatformThread(ThreadRunFunction func,
                  void* obj,
-                 const char* thread_name,
+                 const char* name = "Thread",
                  ThreadPriority priority = kNormalPriority);
   virtual ~PlatformThread();
 
+  // Sets the thread's name. Must be called before Start().
+  // If |obj| is non-null, its value is appended to |name|.
   const std::string& name() const { return name_; }
+  bool SetName(const std::string& name, const void* obj);
 
   // Spawns a thread and tries to set thread priority according to the priority
   // from when CreateThread was called.
@@ -84,7 +87,7 @@ class PlatformThread {
   void* const obj_;
   // TODO(pbos): Make sure call sites use string literals and update to a const
   // char* instead of a std::string.
-  const std::string name_;
+  /* const */ std::string name_;
 #if defined(WEBRTC_WIN)
   static DWORD WINAPI StartThread(void* param);
 

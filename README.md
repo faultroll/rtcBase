@@ -5,4 +5,5 @@ this project extract thread utils from webrtc m66, with my own understands
 - trying to use platform_thread in thread
 
 TODOs
-- polish
+- using c11 thrd in in platform_thread & platform_thread_types
+- timeutils add timespec calc, event&platform_thread_types can using same func

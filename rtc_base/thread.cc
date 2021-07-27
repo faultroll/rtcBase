@@ -44,12 +44,16 @@ class RTC_SCOPED_LOCKABLE MarkProcessingCritScope {
 }  // namespace
 
 ThreadManager* ThreadManager::Instance() {
+  // if we use |static ThreadManager thread_manager;| here, 
+  // memleak(message_queues_&key_&thread_manager) will be fixed, 
+  // but seems its not the usual singleton, so just let it unchanged
   static ThreadManager* const thread_manager = new ThreadManager();
   return thread_manager;
 }
 
 ThreadManager::~ThreadManager() {
   // By above RTC_DEFINE_STATIC_LOCAL.
+  FreeTls(key_);
   RTC_NOTREACHED() /* << "ThreadManager should never be destructed." */;
 }
 
@@ -181,10 +185,7 @@ Thread::Thread(SocketServer* ss, bool do_init)
       ss_(ss) {
   RTC_DCHECK(ss);
   ss_->SetMessageQueue(this);
-  thread_ = std::unique_ptr<PlatformThread>(
-      new PlatformThread(PreRun, this, "Thread"));
-  thread_ref_ = static_cast<PlatformThreadRef>(0);
-  SetName("Thread", this);  // default name
+  /* SetName("Thread", this);  // default name */
   if (do_init) {
     DoInit();
   }
@@ -206,6 +207,8 @@ void Thread::DoInit() {
   }
 
   fInitialized_ = true;
+  thread_ = new PlatformThread(PreRun, this);
+  thread_ref_ = kThreadRefNone;
   ThreadManager::Add(this);
 }
 
@@ -215,6 +218,9 @@ void Thread::DoDestroy() {
   }
 
   fDestroyed_ = true;
+  if (thread_ != nullptr) {
+    delete thread_;
+  }
   // The signal is done from here to ensure
   // that it always gets called when the queue
   // is going away.
@@ -519,6 +525,7 @@ std::unique_ptr<Thread> Thread::Create() {
 }
 
 bool Thread::SleepMs(int milliseconds) {
+#if 0 // using funcs in platform_thread_types
 #if defined(WEBRTC_WIN)
   ::Sleep(milliseconds);
   return true;
@@ -535,10 +542,20 @@ bool Thread::SleepMs(int milliseconds) {
   }
   return true;
 #endif
+#else // 0
+  if (!IsCurrent()) {
+    _SleepMsMessage *smsg = new _SleepMsMessage;
+    smsg->thread = this;
+    smsg->milliseconds = milliseconds;
+    Post(RTC_FROM_HERE, &queued_task_handler_, QueuedTaskHandler::kSleepMs, smsg);
+    return true;
+  }
+  return ThreadSleep(milliseconds);
+#endif // 0
 }
 
 bool Thread::SetName(const std::string& name, const void* obj) {
-  RTC_DCHECK(!IsRunning());
+  /* RTC_DCHECK(!IsRunning());
 
   name_ = name;
   if (obj) {
@@ -548,24 +565,26 @@ bool Thread::SetName(const std::string& name, const void* obj) {
     snprintf(buf, sizeof(buf), " 0x%p", obj);
     name_ += buf;
   }
-  return true;
+  return true; */
+  return thread_->SetName(name, obj);
 }
 
 void Thread::SetDispatchWarningMs(int deadline) {
+#if 0 // No need to check whether if it's |current_thread| here
   if (!IsCurrent()) {
 #if 0 /* defined(USING_SENDLIST) */
     // what to do here?
 #else
     /* PostTask(webrtc::ToQueuedTask(
         [this, deadline]() { SetDispatchWarningMs(deadline); })); */
-    Thread* current_thread = Thread::Current();
     _SetDispatchWarningMsMessage *smsg = new _SetDispatchWarningMsMessage;
-    smsg->thread = current_thread;
+    smsg->thread = this;
     smsg->deadline = deadline;
     Post(RTC_FROM_HERE, &queued_task_handler_, QueuedTaskHandler::kSetDispatchWarningMs, smsg);
 #endif
     return;
   }
+#endif // 0
   dispatch_warning_ms_ = deadline;
 }
 
@@ -623,7 +642,7 @@ void Thread::UnwrapCurrent() {
 #elif defined(WEBRTC_POSIX)
   thread_ = 0;
 #endif */
-  thread_ref_ = static_cast<PlatformThreadRef>(0);
+  thread_ref_ = kThreadRefNone;
 }
 
 void Thread::SafeWrapCurrent() {
@@ -651,7 +670,7 @@ void Thread::Join() {
   thread_ = 0;
 #endif */
   thread_->Stop();
-  thread_ref_ = static_cast<PlatformThreadRef>(0);
+  thread_ref_ = kThreadRefNone;
 }
 
 // static
@@ -663,7 +682,7 @@ void* Thread::PreRun(void* pv) {
 void Thread::PreRun(void* pv) {
   Thread* thread = static_cast<Thread*>(pv);
   ThreadManager::Instance()->SetCurrentThread(thread);
-  rtc::SetCurrentThreadName(thread->name_.c_str());
+  /* rtc::SetCurrentThreadName(thread->name_.c_str()); */
   thread->Run();
 
   ThreadManager::Instance()->SetCurrentThread(nullptr);
@@ -873,10 +892,19 @@ void Thread::QueuedTaskHandler::OnMessage(Message* msg) {
       }
       break;
     }
-    case kSetDispatchWarningMs: {
+    /* case kSetDispatchWarningMs: {
       _SetDispatchWarningMsMessage *smsg = (_SetDispatchWarningMsMessage *)msg->pdata;
       if (smsg->thread) {
         smsg->thread->SetDispatchWarningMs(smsg->deadline);
+      } else {
+        // what to do here?
+      }
+      break;
+    } */
+    case kSleepMs: {
+      _SleepMsMessage *smsg = (_SleepMsMessage *)msg->pdata;
+      if (smsg->thread) {
+        smsg->thread->SleepMs(smsg->milliseconds);
       } else {
         // what to do here?
       }
@@ -965,8 +993,8 @@ bool Thread::IsRunning() {
 #elif defined(WEBRTC_POSIX)
   return thread_ != 0;
 #endif */
-  return (thread_->IsRunning() && 
-    (thread_ref_ != static_cast<PlatformThreadRef>(0)));
+  return ((thread_ref_ != kThreadRefNone) && (thread_ != nullptr)
+    && thread_->IsRunning());
 }
 
 #if 0 /* defined(USING_SENDLIST) */

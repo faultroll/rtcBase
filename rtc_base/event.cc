@@ -77,7 +77,7 @@ void Event::Reset() {
   pthread_mutex_unlock(&event_mutex_);
 }
 
-// TODO can we use functions in timeutils.h
+// TODO maybe can we use functions in timeutils.h
 namespace {
 
 timespec GetTimespec(const int milliseconds) {

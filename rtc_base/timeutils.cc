@@ -35,7 +35,14 @@ int64_t SystemTimeNanos() {
   struct timespec ts;
   // TODO(deadbeef): Do we need to handle the case when CLOCK_MONOTONIC is not
   // supported?
+#if 1 // USE_CLOCK_GETTIME
   clock_gettime(CLOCK_MONOTONIC, &ts);
+#else
+  timeval tv;
+  gettimeofday(&tv, nullptr);
+  ts.tv_sec = tv.tv_sec;
+  ts.tv_nsec = tv.tv_usec * 1000;
+#endif
   ticks = kNumNanosecsPerSec * static_cast<int64_t>(ts.tv_sec) +
           static_cast<int64_t>(ts.tv_nsec);
 #elif defined(WEBRTC_WIN)

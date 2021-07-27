@@ -42,10 +42,14 @@ int main(void)
     std::cout << "Test Multi-thread is started" << std::endl;
     Police p;
     std::unique_ptr<rtc::Thread> thread = rtc::Thread::Create();
+    thread->SetName("thrd_1");
     thread->Start();
 
     p.Help(thread.get(), "Please help me!");
     std::cout << "This will be blocked if using |Send| instead of |Post|" << std::endl;
+    std::cout << "zZz..zZz.." << std::endl;
+    thread->SleepMs(2 * 1000);
+    p.Help(thread.get(), "ring ring after sleep");
     rtc::Thread::Current()->SleepMs(100);
     std::cout << "Test Multi-thread is completed" << std::endl;
 

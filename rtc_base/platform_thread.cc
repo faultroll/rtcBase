@@ -32,13 +32,14 @@ struct ThreadAttributes {
 
 PlatformThread::PlatformThread(ThreadRunFunction func,
                                void* obj,
-                               const char* thread_name,
+                               const char* name /*= "Thread"*/,
                                ThreadPriority priority /*= kNormalPriority*/)
-    : run_function_(func), priority_(priority), obj_(obj), name_(thread_name) {
+    : run_function_(func), priority_(priority), obj_(obj) {
   RTC_DCHECK(func);
   RTC_DCHECK(!name_.empty());
   // TODO(tommi): Consider lowering the limit to 15 (limit on Linux).
   RTC_DCHECK(name_.length() < 64);
+  SetName(name, this);  // default name
 }
 
 PlatformThread::~PlatformThread() {
@@ -46,6 +47,20 @@ PlatformThread::~PlatformThread() {
   RTC_DCHECK(!thread_);
   RTC_DCHECK(!thread_id_);
 #endif  // defined(WEBRTC_WIN)
+}
+
+bool PlatformThread::SetName(const std::string& name, const void* obj) {
+  RTC_DCHECK(!IsRunning());
+
+  name_ = name;
+  if (obj) {
+    // The %p specifier typically produce at most 16 hex digits, possibly with a
+    // 0x prefix. But format is implementation defined, so add some margin.
+    char buf[30];
+    snprintf(buf, sizeof(buf), " 0x%p", obj);
+    name_ += buf;
+  }
+  return true;
 }
 
 #if defined(WEBRTC_WIN)
@@ -172,13 +187,14 @@ void PlatformThread::Run() {
     }
     ++sequence_nr;
 #endif
+    ThreadYield();
 #if defined(WEBRTC_WIN)
-    // Alertable sleep to permit RaiseFlag to run and update |stop_|.
-    SleepEx(0, true);
+    /* // Alertable sleep to permit RaiseFlag to run and update |stop_|.
+    SleepEx(0, true); */
   } while (!stop_);
 #else
-    static const struct timespec ts_null = {0, 0};
-    nanosleep(&ts_null, nullptr);
+    /* static const struct timespec ts_null = {0, 0};
+    nanosleep(&ts_null, nullptr); */
   } while (!AtomicOps::AcquireLoad(&stop_flag_));
 #endif  // defined(WEBRTC_WIN)
 }

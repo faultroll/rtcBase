@@ -44,14 +44,26 @@ bool IsThreadRefEqual(const PlatformThreadRef& a, const PlatformThreadRef& b);
 // Sets the current thread name.
 void SetCurrentThreadName(const char* name);
 
-// Create a TLS(Thread Local Storage)
+// Create a TLs(Thread Local-storage) or TsS(Thread-specific Storage)
 PlatformTlsKey AllocTls();
+
+// Create a TLS(Thread Local Storage)
+void FreeTls(PlatformTlsKey key);
 
 // Get the value of key
 void *GetTlsValue(PlatformTlsKey key);
 
 // Set the value of key
 void SetTlsValue(PlatformTlsKey key, const void *value);
+
+// Sleeps the calling thread for the specified number of milliseconds, during
+// which time no processing is performed. Returns false if sleeping was
+// interrupted by a signal (POSIX only).
+bool ThreadSleep(int milliseconds);
+
+// Yield execution to another thread. Permit other threads to run, 
+// even if current thread would ordinarily continue to run.
+void ThreadYield(void);
 
 }  // namespace rtc
 

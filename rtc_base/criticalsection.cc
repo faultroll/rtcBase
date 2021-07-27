@@ -144,16 +144,17 @@ bool TryCritScope::locked() const {
 }
 
 void GlobalLockPod::Lock() {
-#if !defined(WEBRTC_WIN)
+/* #if !defined(WEBRTC_WIN)
   const struct timespec ts_null = {0, 0};
-#endif
+#endif */
 
   while (AtomicOps::CompareAndSwap(&lock_acquired, 0, 1)) {
-#if defined(WEBRTC_WIN)
+/* #if defined(WEBRTC_WIN)
     ::Sleep(0);
 #else
     nanosleep(&ts_null, nullptr);
-#endif
+#endif */
+    ThreadYield();
   }
 }
 

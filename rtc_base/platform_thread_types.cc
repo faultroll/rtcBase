@@ -71,7 +71,6 @@ void SetCurrentThreadName(const char* name) {
 #endif  // defined(WEBRTC_WIN)
 }
 
-// Create a TLS(Thread Local Storage)
 PlatformTlsKey AllocTls()
 {
   PlatformTlsKey key;
@@ -83,7 +82,15 @@ PlatformTlsKey AllocTls()
   return key;
 }
 
-// Get the value of key
+void FreeTls(PlatformTlsKey key)
+{
+#if defined(WEBRTC_WIN)
+  TlsFree(key);
+#elif defined(WEBRTC_POSIX)
+  pthread_key_delete(key);
+#endif  // defined(WEBRTC_WIN)
+}
+
 void *GetTlsValue(PlatformTlsKey key)
 {
 #if defined(WEBRTC_WIN)
@@ -93,13 +100,48 @@ void *GetTlsValue(PlatformTlsKey key)
 #endif  // defined(WEBRTC_WIN)
 }
 
-// Set the value of key
 void SetTlsValue(PlatformTlsKey key, const void *value)
 {
 #if defined(WEBRTC_WIN)
   TlsSetValue(key, value);
 #elif defined(WEBRTC_POSIX)
   pthread_setspecific(key, value);
+#endif  // defined(WEBRTC_WIN)
+}
+
+bool ThreadSleep(int milliseconds)
+{
+#if defined(WEBRTC_WIN)
+  ::Sleep(milliseconds);
+  return true;
+#else
+  // POSIX has both a usleep() and a nanosleep(), but the former is deprecated,
+  // so we use nanosleep() even though it has greater precision than necessary.
+  struct timespec ts;
+  ts.tv_sec = milliseconds / 1000;
+  ts.tv_nsec = (milliseconds % 1000) * 1000000;
+  // Normalize.
+  if (ts.tv_nsec >= 1000000000) {
+    ts.tv_sec++;
+    ts.tv_nsec -= 1000000000;
+  }
+  int ret = nanosleep(&ts, nullptr);
+  if (ret != 0) {
+    /* RTC_LOG_ERR(LS_WARNING) << "nanosleep() returning early"; */
+    return false;
+  }
+  return true;
+#endif  // defined(WEBRTC_WIN)
+}
+
+void ThreadYield(void)
+{
+#if defined(WEBRTC_WIN)
+    // Alertable sleep to permit RaiseFlag to run and update |stop_|.
+    SleepEx(0, true); // ::Sleep(0);
+#else
+    static const struct timespec ts_null = {0, 0};
+    nanosleep(&ts_null, nullptr);
 #endif  // defined(WEBRTC_WIN)
 }
 

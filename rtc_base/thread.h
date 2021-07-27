@@ -184,15 +184,15 @@ class RTC_LOCKABLE Thread {
 
   bool IsCurrent() const;
 
-  // Sleeps the calling thread for the specified number of milliseconds, during
+  // Sleeps the thread for the specified number of milliseconds, during
   // which time no processing is performed. Returns false if sleeping was
   // interrupted by a signal (POSIX only).
-  static bool SleepMs(int millis);
+  /* static */ bool SleepMs(int millis);
 
   // Sets the thread's name, for debugging. Must be called before Start().
   // If |obj| is non-null, its value is appended to |name|.
   const std::string& name() const { return name_; }
-  bool SetName(const std::string& name, const void* obj);
+  bool SetName(const std::string& name, const void* obj = nullptr);
 
   // Sets the expected processing time in ms. The thread will write
   // log messages when Invoke() takes more time than this.
@@ -359,17 +359,24 @@ class RTC_LOCKABLE Thread {
     Event *done;
   };
 
-  class _SetDispatchWarningMsMessage final : public rtc::MessageData {
+  /* class _SetDispatchWarningMsMessage final : public rtc::MessageData {
    public:
     Thread *thread;
     int deadline;
+  }; */
+
+  class _SleepMsMessage final : public rtc::MessageData {
+   public:
+    Thread *thread;
+    int milliseconds;
   };
 
   class QueuedTaskHandler final : public MessageHandler {
    public:
     enum Operation {
       kSend,
-      kSetDispatchWarningMs,
+      /* kSetDispatchWarningMs, */
+      kSleepMs,
     };
     QueuedTaskHandler() {}
     void OnMessage(Message* msg) override;
@@ -408,7 +415,8 @@ class RTC_LOCKABLE Thread {
   HANDLE thread_ = nullptr;
   DWORD thread_id_ = 0;
 #endif */
-  std::unique_ptr<PlatformThread> thread_;
+  static const PlatformThreadRef kThreadRefNone = static_cast<PlatformThreadRef>(0);
+  PlatformThread* thread_;
   PlatformThreadRef thread_ref_;
 
   // Indicates whether or not ownership of the worker thread lies with
