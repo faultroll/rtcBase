@@ -34,6 +34,8 @@ public:
                 std::cout << "MSG_HELP :" << data->info_ << std::endl;
                 break;
         }
+
+        delete msg->pdata; // delete data when we don't use it
     }
 };
 
@@ -52,6 +54,10 @@ int main(void)
     p.Help(thread.get(), "ring ring after sleep");
     rtc::Thread::Current()->SleepMs(100);
     std::cout << "Test Multi-thread is completed" << std::endl;
+
+    // first stop all thread, then unwrap main thread, otherwise memleak will occur
+    thread->Stop();
+    rtc::ThreadManager::Instance()->UnwrapCurrentThread();
 
     return 0;
 }

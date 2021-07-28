@@ -33,6 +33,8 @@ public:
                 std::cout << "MSG_HELP : " << data->info_ << std::endl;
                 break;
         }
+
+        delete msg->pdata;
     }
 };
 
@@ -43,5 +45,9 @@ int main(void)
     p.Help("Please help me!");
     rtc::Thread::Current()->Run();
     std::cout << "Test Thread is completed" << std::endl;
+
+    // won't be reached
+    // rtc::ThreadManager::Instance()->UnwrapCurrentThread();
+
     return 0;
 }

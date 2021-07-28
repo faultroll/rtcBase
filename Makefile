@@ -5,8 +5,8 @@ ar     := $(prfx)ar
 ranlib := $(prfx)ranlib
 strip  := $(prfx)strip
 
-# only three macros
-name    := rtcThread
+# c version will be rtcthrd_c
+name    := rtcthrd
 srcs    := $(wildcard rtc_base/*.cc)
 objs    := $(patsubst %.cc,%.o,$(filter %.cc, $(srcs)))
 deps    := $(patsubst %.o,%.d,$(objs))
@@ -15,7 +15,7 @@ cflags  := -I. -DNDEBUG -DWEBRTC_POSIX # -DWEBRTC_WIN
 ldflags := 
 
 targets := lib$(name).so lib$(name).a
-demos   := single.elf multi.elf
+demos   := single.elf multi.elf override.elf
 all : $(targets) $(demos)
 
 clean : 
