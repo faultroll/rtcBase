@@ -15,7 +15,7 @@ cflags  := -I. -DNDEBUG -DWEBRTC_POSIX # -DWEBRTC_WIN
 ldflags := 
 
 targets := lib$(name).so lib$(name).a
-demos   := single.elf multi.elf override.elf
+demos   := single.elf multi.elf override.elf workers.elf
 all : $(targets) $(demos)
 
 clean : 

@@ -36,7 +36,7 @@ int main(void)
     Worker worker_;
     worker_.SetName("Override");
     worker_.Start();
-    rtc::Thread::Current()->SleepMs(1010); // |count_| should be 1000/200+1=6
+    rtc::Thread::Current()->SleepMs(1010); // |count_| should be 1000/200+1=6, first one at 0ms
     worker_.Stop();
     rtc::ThreadManager::Instance()->UnwrapCurrentThread();
 
