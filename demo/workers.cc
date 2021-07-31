@@ -3,10 +3,20 @@
 #include "rtc_base/thread.h"
 
 // TODO(s)
-// 1. service Post to adapter, adapter use callback to tell main
-// 2. different service same adapter, relation between adapter and service
+// - service Post to adapter, adapter use callback to tell main
+// - different service same adapter, relation between adapter and service
+// - service&adapter一个线程两个handle，adapter直接send给service（同一线程会直接调用），成员thread *current_，自发生成job，成员inchn同样位置存储job handle控制开关d
+// - 三种方式增加：单次（阻塞/非阻塞）/多次（定时，起停）
+// - 没有adapter线程，拆分命令直接onmessage内调，不分成两个线程；service纯虚类，提供thread_以及asyncmsg&synccall两个纯虚方法，不同service直接继承并提供enum/data和handler_，同时子service为单例
+// - 不同service互不影响（encoder/merger)
+// - 同一service顺序响应，sync不能直接调（除非支持多线程）要用send；自发命令替代status；直接调回调代替report
+// - 能力集按子系统（service）报则post否则直接调回调
+// - service小修仅不继承thread，在onmessage中直接调用proc
+// - 按proj分达到定制，还是不同service分，不同proj仅对参数定制：不同对外接口subproc，单独一个类（全集，枚举集，调service），然后不同proj根据需要调用subproc（同一类对外接口其实一个就够？）；问题如何达到现在这种只编译需要的？只能通过判断enum来控制，但还是编译进去了
 
-class Adapter : public rtc::MessageHandler
+
+
+/* class Adapter : public rtc::MessageHandler
 {
 public:
     Adapter()
@@ -76,99 +86,135 @@ public:
     }
 private:
     std::unique_ptr<rtc::Thread> thread_;
-};
+}; */
 
-class Service : public rtc::MessageHandler
+class Service // can cascade
 {
 public:
-    Service()
-        : working_(false),
-          count_(0)
+    Service(rtc::Thread *thread)
+        : thread_(thread),
+          handler_(this) {}
+    virtual ~Service() {}
+
+    void AsyncMsg(int oper, void *data)
     {
-        thread_ = rtc::Thread::Create();
-        thread_->Start();
-    }
-    ~Service()
-    {
-        thread_->Stop();
+        ServiceData *data_tmp = new ServiceData;
+        data_tmp->oper_ = oper;
+        data_tmp->data_ = data; // dup data
+        data_tmp->result_ = nullptr;
+        thread_->Post(RTC_FROM_HERE, &handler_,
+                      ServiceHandler::kProcess, data_tmp);
     }
 
-    enum operation {
-        INIT,
-        WORK,
-        REWORK,
-        FINISH,
-    };
+    int SyncCall(int oper, void *data)
+    {
+        int result;
 
-    class InitData : public rtc::MessageData
+        ServiceData *data_tmp = new ServiceData;
+        data_tmp->oper_ = oper;
+        data_tmp->data_ = data;
+        data_tmp->result_ = &result;
+        thread_->Send(RTC_FROM_HERE, &handler_,
+                      ServiceHandler::kProcess, data_tmp);
+
+        return result;
+    }
+
+    virtual int Process(int oper, void *data) = 0;
+
+private:
+    class WorkHandler : public rtc::MessageData
     {
     public:
-        size_t which_;
+        int oper_;
+        void *data_;
+        bool working_;
     };
 
-    class FinishData : public rtc::MessageData
+    // should be public
+    WorkHandler *BeginWork(int oper, void *data)
     {
-    public:
-        size_t which_;
-    };
-
-    void SendMsg(enum operation oper, void *data)
-    {
-        thread_->Post(RTC_FROM_HERE, this,
-                      oper, static_cast<rtc::MessageData *>(data));
+        WorkHandler *handler = new WorkHandler;
+        handler->oper_ = oper;
+        handler->data_ = data; // dup data
+        handler->working_ = true;
+        thread_->Post(RTC_FROM_HERE, &handler_,
+                      ServiceHandler::kWorkWork, handler);
+        return handler;
     }
 
-    virtual void OnMessage(rtc::Message *msg)
+    void WorkWork(WorkHandler *handler)
     {
-        switch (msg->message_id) {
-            case INIT: {
-                InitData *data = (InitData *)msg->pdata;
-                std::cout << "INIT: " << data->which_ << std::endl;
-                // First blood for worker
-                working_ = true;
-                thread_->PostDelayed(RTC_FROM_HERE, 200, this, REWORK, nullptr); // Post also works
-                break;
-            }
-            case WORK: {
-                if (working_) {
-                    std::cout << "WORK" << std::endl;
+        Process(handler->oper_, handler->data_);
+        thread_->PostDelayed(RTC_FROM_HERE, 200, &handler_,
+                             ServiceHandler::kWorkWork, handler);
+    }
+
+    // should be public
+    void EndWork(WorkHandler *handler)
+    {
+        handler->working_ = false;
+        // handler deleted in OnMessage
+    }
+
+    class ServiceData : public rtc::MessageData
+    {
+    public:
+        int oper_;
+        void *data_;
+        int *result_;
+    };
+
+    class ServiceHandler : public rtc::MessageHandler
+    {
+    public:
+        enum Operations {
+            kProcess,
+            kWorkWork,
+        };
+        ServiceHandler(Service *parent)
+            : parent_(parent) {}
+        /* virtual */ ~ServiceHandler() {}
+
+        /* virtual */ void OnMessage(rtc::Message *msg)
+        {
+            switch (msg->message_id) {
+                case kWorkWork: {
+                    WorkHandler *handler = (WorkHandler *)msg->pdata;
+                    if (handler->working_) {
+                        std::cout << "WORK~WORK~" << std::endl;
+                        parent_->WorkWork(handler);
+                    } else {
+                        delete handler;
+                    }
+                    break;
                 }
-                break;
-            }
-            case REWORK: {
-                if (working_) {
-                    count_++;
-                    std::cout << "WORK-WORK: " << count_ << std::endl;
-                    thread_->PostDelayed(RTC_FROM_HERE, 200, this, REWORK, nullptr);
+                default: {
+                    ServiceData *data = (ServiceData *)msg->pdata;
+                    int result = parent_->Process(msg->message_id, msg->pdata);
+                    if (nullptr == data->result_) {
+                        // sync
+                        *data->result_ = result;
+                    } else {
+                        // async
+                        // free data
+                    }
+                    delete msg->pdata;
+                    break;
                 }
-                break;
-            }
-            case FINISH: {
-                FinishData *data = (FinishData *)msg->pdata;
-                if (thread_->IsCurrent()) {
-                    // No race
-                    working_ = false;
-                    count_ = 0;
-                    std::cout << "FINISH: " << data->which_ << std::endl;
-                } else {
-                    // cannot happen
-                    std::cout << "FINISH: something wrong" << std::endl;
-                }
-                break;
             }
         }
 
-        delete msg->pdata;
-    }
-private:
-    std::unique_ptr<rtc::Thread> thread_;
-    bool working_;
-    size_t count_;
+        Service *parent_;
+    };
+
+    rtc::Thread *thread_;
+    ServiceHandler handler_;
 };
 
 int main(void)
 {
-    Adapter *adapter = new Adapter;
+    /* Adapter *adapter = new Adapter;
 
     Adapter::StartData *start = new Adapter::StartData;
     start->which_ = 123;
@@ -185,7 +231,8 @@ int main(void)
     Service::InitData *init = new Service::InitData;
     init->which_ = 233;
     service->SendMsg(Service::INIT, init);
-    rtc::Thread::Current()->SleepMs(1000); // |count_| should be 1000/200=5, first one at 200ms
+    rtc::Thread::Current()->SleepMs(
+        1000); // |count_| should be 1000/200=5, first one at 200ms
     service->SendMsg(Service::WORK, nullptr);
     rtc::Thread::Current()->SleepMs(200); // |REWORK| will not block |WORK|
     service->SendMsg(Service::WORK, nullptr);
@@ -197,7 +244,7 @@ int main(void)
 
     delete service;
     delete adapter;
-    rtc::ThreadManager::Instance()->UnwrapCurrentThread();
+    rtc::ThreadManager::Instance()->UnwrapCurrentThread(); */
 
     return 0;
 }
