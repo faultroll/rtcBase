@@ -25,10 +25,7 @@ public:
 
     /* virtual */ void AsyncMsg(int oper, void *data)
     {
-        WorkData *handler = new WorkData;
-        handler->oper_ = oper;
-        handler->data_ = DataDup(oper, data);
-        handler->result_ = nullptr;
+        WorkData *handler = new WorkData(this, oper, data, nullptr);
         thread_->Post(RTC_FROM_HERE, &handler_,
                       PeonHandler::kWork, handler);
     }
@@ -37,10 +34,7 @@ public:
     {
         int result;
 
-        WorkData *handler = new WorkData;
-        handler->oper_ = oper;
-        handler->data_ = data;
-        handler->result_ = &result;
+        WorkData *handler = new WorkData(this, oper, data, &result);
         thread_->Send(RTC_FROM_HERE, &handler_,
                       PeonHandler::kWork, handler);
 
@@ -52,49 +46,99 @@ public:
     virtual int Process(int oper, void *data) = 0;
     virtual void Report(int oper, void *data, int result) = 0;
 
-private:
-    class WorkData : public rtc::MessageData
-    {
-    public:
-        int oper_;
-        void *data_;
-        int *result_;
-    };
-
+    // should be private
     class WorkWorkData : public rtc::MessageData
     {
     public:
+        WorkWorkData(Peon *parent, int oper, void *data, int rest)
+            : oper_(oper),
+              data_(data),
+              working_(true),
+              rest_(rest),
+              //   quit_(false),
+              parent_(parent)
+        {
+            data_ = parent_->DataDup(oper_, data_);
+        }
+        ~WorkWorkData()
+        {
+            parent_->DataFree(oper_, data_);
+        }
+
         int oper_;
         void *data_;
         bool working_;
         int rest_;
+        // bool quit_;
+
+    private:
+        Peon *parent_;
     };
 
-    // should be public
     WorkWorkData *ReadyToWork(int oper, void *data, int rest)
     {
-        WorkWorkData *handler = new WorkWorkData;
-        handler->oper_ = oper;
-        handler->data_ = DataDup(oper, data);
-        handler->working_ = true;
-        handler->rest_ = rest;
+        WorkWorkData *handler = new WorkWorkData(this, oper, data, rest);
         thread_->Post(RTC_FROM_HERE, &handler_,
                       PeonHandler::kWorkWork, handler);
         return handler;
     }
 
+    // should be private
     void WorkWork(WorkWorkData *handler)
     {
         thread_->PostDelayed(RTC_FROM_HERE, handler->rest_, &handler_,
                              PeonHandler::kWorkWork, handler);
     }
 
-    // should be public
     void MoreWork(WorkWorkData *handler)
     {
         handler->working_ = false;
-        // |handler| is deleted in OnMessage
+        // |handler| is deleted in |OnMessage|
+        /* if (thread_->IsCurrent()) {
+            // cannot |Clear| if more than one |WorkWorkData|
+            // thread_->Clear(&handler_, PeonHandler::kWorkWork);
+        } else {
+            // should wait until |OnMessage| done
+            while (!handler->quit_) {
+                rtc::Thread::Current()->SleepMs(handler->rest_);
+            }
+        }
+        delete handler; */
     }
+
+private:
+    class WorkData : public rtc::MessageData
+    {
+    public:
+        WorkData(Peon *parent, int oper, void *data, int *result)
+            : oper_(oper),
+              data_(data),
+              result_(result),
+              parent_(parent)
+        {
+            if (result_ != nullptr) {
+                ; // do nothing
+            } else {
+                data_ = parent_->DataDup(oper_, data_);
+            }
+        }
+        ~WorkData()
+        {
+            if (result_ != nullptr) {
+                ; // do nothing
+            } else {
+                // should be here, otherwise memleak will occur when |Stop|
+                parent_->DataFree(oper_, data_);
+            }
+        }
+
+        int oper_;
+        void *data_;
+        int *result_;
+
+    private:
+        Peon *parent_;
+    };
 
     class PeonHandler : public rtc::MessageHandler
     {
@@ -120,7 +164,6 @@ private:
                     } else {
                         // async
                         parent_->Report(handler->oper_, handler->data_, result);
-                        parent_->DataFree(handler->oper_, handler->data_);
                     }
                     delete handler;
                     break;
@@ -133,7 +176,7 @@ private:
                         parent_->WorkWork(handler);
                     } else {
                         /* std::cout << "MORE-WORK!" << std::endl; */
-                        parent_->DataFree(handler->oper_, handler->data_);
+                        // handler->quit_ = true;
                         delete handler;
                     }
                     break;
@@ -160,47 +203,80 @@ public:
         : Peon(thread) {}
     virtual ~Service() {}
 
+    enum Operations {
+        kHeng,
+        kHa,
+        kHengHa,
+    };
+
+    struct HengData {
+        int heng_;
+    };
+
+    struct HaData {
+        int ha_;
+    };
+
+    struct HengHaData {
+        int hengha_;
+    };
+
     void *DataDup(int oper, void *data)
     {
-        (void)oper;
-        size_t size = 1024;
+        const struct {
+            enum Operations oper_;
+            size_t size_;
+        } tbl_sz[] = {
+            {kHeng, sizeof(HengData)},
+            {kHa, sizeof(HaData)},
+            {kHengHa, sizeof(HengHaData)},
+        };
+        const int len = (int)(sizeof(tbl_sz) / sizeof(tbl_sz[0]));
+        int i;
+        size_t size;
+        for (i = 0; i < len; i++)
+            if (tbl_sz[i].oper_ == oper)
+                break;
+        if (i < len)
+            size = tbl_sz[i].size_;
+        else
+            size = 1024;
         void *data_tmp = malloc(size);
         memmove(data_tmp, data, size);
+        std::cout << "DataDup Service: " << oper
+                  << ", size: " << size << ", data: " << data_tmp << std::endl;
         return data_tmp;
     }
 
     void DataFree(int oper, void *data)
     {
-        (void)oper;
+        std::cout << "DataFree Service: " << oper << ", data: " << data << std::endl;
         free(data);
     }
-
-    enum Operations {
-        kHengHeng,
-        kHaHa,
-    };
-
-    struct HengHengData {
-        int heng_;
-    };
-
-    struct HaHaData {
-        int ha_;
-    };
 
     int Process(int oper, void *data)
     {
         std::cout << "Process Service: " << oper << std::endl;
 
         switch (oper) {
-            case kHengHeng: {
-                HengHengData *data_tmp = (HengHengData *)data;
-                std::cout << "Heng " << data_tmp->heng_ << std::endl;
+            case kHeng: {
+                HengData *data_tmp = (HengData *)data;
+                std::cout << "Heng: " << data_tmp->heng_ << std::endl;
+                HengHaData count;
+                count.hengha_ = 0;
+                handler_ = ReadyToWork(kHengHa, &count, 200);
                 break;
             }
-            case kHaHa: {
-                HaHaData *data_tmp = (HaHaData *)data;
-                std::cout << "Ha " << data_tmp->ha_ << std::endl;
+            case kHa: {
+                HaData *data_tmp = (HaData *)data;
+                std::cout << "Ha: " << data_tmp->ha_ << std::endl;
+                MoreWork(handler_);
+                break;
+            }
+            case kHengHa: {
+                HengHaData *data_tmp = (HengHaData *)data;
+                data_tmp->hengha_++;
+                std::cout << "HengHa! " << data_tmp->hengha_ << std::endl;
                 break;
             }
             default: {
@@ -215,8 +291,11 @@ public:
     {
         (void)oper;
         (void)data;
-        std::cout << "Report Service: " << std::hex << result << std::endl;
+        printf("Report Service: %#x\n", result);
     }
+
+private:
+    WorkWorkData *handler_;
 };
 
 class Adapter : public Peon
@@ -227,27 +306,76 @@ public:
           service_(service) {}
     virtual ~Adapter() {}
 
+    enum Operations {
+        kHengHeng,
+        kHaHa,
+    };
+
+    struct HengHengData {
+        int hengheng_;
+    };
+
+    struct HaHaData {
+        int haha_;
+    };
+
     void *DataDup(int oper, void *data)
     {
-        (void)oper;
-        size_t size = 1024;
+        const struct {
+            enum Operations oper_;
+            size_t size_;
+        } tbl_sz[] = {
+            {kHengHeng, sizeof(HengHengData)},
+            {kHaHa, sizeof(HaHaData)},
+        };
+        const int len = (int)(sizeof(tbl_sz) / sizeof(tbl_sz[0]));
+        int i;
+        size_t size;
+        for (i = 0; i < len; i++)
+            if (tbl_sz[i].oper_ == oper)
+                break;
+        if (i < len)
+            size = tbl_sz[i].size_;
+        else
+            size = 1024;
         void *data_tmp = malloc(size);
         memmove(data_tmp, data, size);
+        std::cout << "DataDup Adapter: " << oper
+                  << ", size: " << size << ", data: " << data_tmp << std::endl;
         return data_tmp;
     }
 
     void DataFree(int oper, void *data)
     {
-        (void)oper;
+        std::cout << "DataFree Adapter: " << oper << ", data: " << data << std::endl;
         free(data);
     }
 
     int Process(int oper, void *data)
     {
-        (void)oper;
-        (void)data;
         std::cout << "Process Adapter: " << oper << std::endl;
-        service_->SyncCall(oper, data);
+
+        switch (oper) {
+            case kHengHeng: {
+                HengHengData *data_src = (HengHengData *)data;
+                Service::HengData *data_dst = new Service::HengData;
+                data_dst->heng_ = data_src->hengheng_;
+                service_->SyncCall(Service::kHeng, data_dst);
+                delete data_dst;
+                break;
+            }
+            case kHaHa: {
+                HaHaData *data_src = (HaHaData *)data;
+                Service::HaData *data_dst = new Service::HaData;
+                data_dst->ha_ = data_src->haha_;
+                service_->SyncCall(Service::kHa, data);
+                delete data_dst;
+                break;
+            }
+            default: {
+                break;
+            }
+        }
 
         return 0xdeadbeaf;
     }
@@ -256,14 +384,16 @@ public:
     {
         (void)oper;
         (void)data;
-        std::cout << "Report Adapter: " << std::hex << result << std::endl;
+        // bug: data is changed when using |std::hex|, for it changes all numerics to hex after using it
+        // std::cout << "Report Adapter: " << std::hex << result << std::endl;
+        printf("Report Adapter: %#x\n", result);
     }
 
-    // // error: marked ‘override’, but does not override
-    // int SyncCall(int oper, void *data) /* override */
-    // {
-    //     return Process(oper, data);
-    // }
+    // error: marked ‘override’, but does not override
+    int SyncCall(int oper, void *data) /* override */
+    {
+        return Process(oper, data);
+    }
 
 private:
     Service *service_;
@@ -281,9 +411,13 @@ public :
     }
     ~Project1()
     {
+        thread_->Stop();
+        // will cause segment fault if |thread_| is deleted after |service_|
+        // once |service_| is deleted, the |DataFree| funcs and |parent_| in |Peon| will be *Wild*
+        // thus segment fault occurs when |WorkWorkData| dtor
+        thread_ = nullptr; // delete |std::unique_ptr|
         delete adapter_;
         delete service_;
-        thread_->Stop();
     }
 
     Adapter *adapter_;
@@ -297,16 +431,14 @@ int main(void)
 {
     Project1 project1;
     void *data = malloc(111);
-    // project1.adapter_->AsyncMsg(213, data);
-    // project1.adapter_->SyncCall(233, data);
-    // project1.service_->AsyncMsg(213, data);
-    // project1.service_->SyncCall(233, data);
     *(int *)data = 1024;
-    project1.adapter_->AsyncMsg(Service::kHengHeng, data);
-    project1.adapter_->SyncCall(Service::kHaHa, data); // bug: data is changed, why?
+    project1.adapter_->AsyncMsg(Adapter::kHengHeng, data);
+    sleep(1);
+    project1.adapter_->SyncCall(Adapter::kHaHa, data);
     free(data);
 
     rtc::ThreadManager::Instance()->UnwrapCurrentThread();
+    // sleep(1);
 
     return 0;
 }
