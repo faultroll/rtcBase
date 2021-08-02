@@ -2,115 +2,113 @@
 #include <iostream>
 #include "rtc_base/thread.h"
 
-// TODO(s)
-// - service Post to adapter, adapter use callback to tell main
-// - different service same adapter, relation between adapter and service
-// - service&adapter一个线程两个handle，adapter直接send给service（同一线程会直接调用），成员thread *current_，自发生成job，成员inchn同样位置存储job handle控制开关d
-// - 三种方式增加：单次（阻塞/非阻塞）/多次（定时，起停）
-// - 没有adapter线程，拆分命令直接onmessage内调，不分成两个线程；子service为单例
-// - 不同service互不影响（encoder/merger)
-// - 同一service顺序响应，sync不能直接调（除非支持多线程）要用send；自发命令替代status；直接调回调代替report
-// - 能力集按子系统（service）报则post否则直接调回调
-// - service小修仅不继承thread，在onmessage中直接调用proc
-// - 定制: 不同proj仅对参数定制，不同对外接口（如zk1, zk2）subproc，单独一个类（全集，枚举集，调service），然后不同proj根据需要调用subproc；如何达到现在这种只编译需要的？
-
+// - |project|--|adapter|--|service|
+//   - 1 |project| 1 |adapter|
+//     |project| should be singleton, same |project| means same api
+//     |adapter| is needed because of |AsyncMsg| and different api
+//     1 |project| may have m |adapter| instance, they(also |service|) should be compiled as needed
+//   - 1 |adapter| m |service|
+//     1 |service| and 1adapter instance in 1 thread
+//     |adapter| should be relative with api(project), while |service| shouldn't
+//     |service| should be singleton, different |service| is isolate
 
 class Peon // can cascade
 {
 public:
-    Peon(rtc::Thread *thread)
-        : thread_(thread),
+    Peon(int type, rtc::Thread *thread)
+        : type_(type),
+          thread_(thread),
           handler_(this) {}
     virtual ~Peon() {}
 
     /* virtual */ void AsyncMsg(int oper, void *data)
     {
-        WorkData *handler = new WorkData(this, oper, data, nullptr);
+        OnePushData *handler = new OnePushData(this, oper, data, nullptr);
         thread_->Post(RTC_FROM_HERE, &handler_,
-                      PeonHandler::kWork, handler);
+                      PeonHandler::kOnePush, handler);
     }
 
     /* virtual */ int SyncCall(int oper, void *data)
     {
         int result;
 
-        WorkData *handler = new WorkData(this, oper, data, &result);
+        OnePushData *handler = new OnePushData(this, oper, data, &result);
         thread_->Send(RTC_FROM_HERE, &handler_,
-                      PeonHandler::kWork, handler);
+                      PeonHandler::kOnePush, handler);
 
         return result;
     }
 
-    virtual void *DataDup(int oper, void *data) = 0;
-    virtual void DataFree(int oper, void *data) = 0;
-    virtual int Process(int oper, void *data) = 0;
-    virtual void Report(int oper, void *data, int result) = 0;
+    virtual void *DataDupFunction(int oper, void *data) = 0;
+    virtual void DataFreeFunction(int oper, void *data) = 0;
+    virtual int ProcessFunction(int oper, void *data) = 0;
+    virtual void ReportFunction(int oper, void *data, int result) = 0;
 
     // should be private
-    class WorkWorkData : public rtc::MessageData
+    class AutoCycleData : public rtc::MessageData
     {
     public:
-        WorkWorkData(Peon *parent, int oper, void *data, int rest)
+        AutoCycleData(Peon *parent, int oper, void *data, int interval)
             : oper_(oper),
               data_(data),
-              working_(true),
-              rest_(rest),
+              cycling_(true),
+              interval_(interval),
               //   quit_(false),
               parent_(parent)
         {
-            data_ = parent_->DataDup(oper_, data_);
+            data_ = parent_->DataDupFunction(oper_, data_);
         }
-        ~WorkWorkData()
+        ~AutoCycleData()
         {
-            parent_->DataFree(oper_, data_);
+            parent_->DataFreeFunction(oper_, data_);
         }
 
         int oper_;
         void *data_;
-        bool working_;
-        int rest_;
+        bool cycling_;
+        int interval_;
         // bool quit_;
 
     private:
         Peon *parent_;
     };
 
-    WorkWorkData *ReadyToWork(int oper, void *data, int rest)
+    AutoCycleData *EnterCycle(int oper, void *data, int interval)
     {
-        WorkWorkData *handler = new WorkWorkData(this, oper, data, rest);
+        AutoCycleData *handler = new AutoCycleData(this, oper, data, interval);
         thread_->Post(RTC_FROM_HERE, &handler_,
-                      PeonHandler::kWorkWork, handler);
+                      PeonHandler::kAutoCycle, handler);
         return handler;
     }
 
     // should be private
-    void WorkWork(WorkWorkData *handler)
+    void ToNextCycle(AutoCycleData *handler)
     {
-        thread_->PostDelayed(RTC_FROM_HERE, handler->rest_, &handler_,
-                             PeonHandler::kWorkWork, handler);
+        thread_->PostDelayed(RTC_FROM_HERE, handler->interval_, &handler_,
+                             PeonHandler::kAutoCycle, handler);
     }
 
-    void MoreWork(WorkWorkData *handler)
+    void ExitCycle(AutoCycleData *handler)
     {
-        handler->working_ = false;
+        handler->cycling_ = false;
         // |handler| is deleted in |OnMessage|
         /* if (thread_->IsCurrent()) {
-            // cannot |Clear| if more than one |WorkWorkData|
-            // thread_->Clear(&handler_, PeonHandler::kWorkWork);
+            // cannot |Clear| if more than one |AutoCycleData|
+            // thread_->Clear(&handler_, PeonHandler::kAutoCycle);
         } else {
             // should wait until |OnMessage| done
             while (!handler->quit_) {
-                rtc::Thread::Current()->SleepMs(handler->rest_);
+                rtc::Thread::Current()->SleepMs(handler->interval_);
             }
         }
         delete handler; */
     }
 
 private:
-    class WorkData : public rtc::MessageData
+    class OnePushData : public rtc::MessageData
     {
     public:
-        WorkData(Peon *parent, int oper, void *data, int *result)
+        OnePushData(Peon *parent, int oper, void *data, int *result)
             : oper_(oper),
               data_(data),
               result_(result),
@@ -119,16 +117,16 @@ private:
             if (result_ != nullptr) {
                 ; // do nothing
             } else {
-                data_ = parent_->DataDup(oper_, data_);
+                data_ = parent_->DataDupFunction(oper_, data_);
             }
         }
-        ~WorkData()
+        ~OnePushData()
         {
             if (result_ != nullptr) {
                 ; // do nothing
             } else {
                 // should be here, otherwise memleak will occur when |Stop|
-                parent_->DataFree(oper_, data_);
+                parent_->DataFreeFunction(oper_, data_);
             }
         }
 
@@ -144,8 +142,8 @@ private:
     {
     public:
         enum Operations {
-            kWork,
-            kWorkWork,
+            kOnePush,
+            kAutoCycle,
         };
         PeonHandler(Peon *parent)
             : parent_(parent) {}
@@ -154,28 +152,25 @@ private:
         /* virtual */ void OnMessage(rtc::Message *msg)
         {
             switch (msg->message_id) {
-                case kWork: {
-                    WorkData *handler = (WorkData *)msg->pdata;
-                    /* std::cout << "READY-TO-WORK..." << std::endl; */
-                    int result = parent_->Process(handler->oper_, handler->data_);
+                case kOnePush: {
+                    OnePushData *handler = (OnePushData *)msg->pdata;
+                    int result = parent_->ProcessFunction(handler->oper_, handler->data_);
                     if (handler->result_ != nullptr) {
                         // sync
                         *handler->result_ = result;
                     } else {
                         // async
-                        parent_->Report(handler->oper_, handler->data_, result);
+                        parent_->ReportFunction(handler->oper_, handler->data_, result);
                     }
                     delete handler;
                     break;
                 }
-                case kWorkWork: {
-                    WorkWorkData *handler = (WorkWorkData *)msg->pdata;
-                    if (handler->working_) {
-                        /* std::cout << "WORK~WORK~" << std::endl; */
-                        parent_->Process(handler->oper_, handler->data_);
-                        parent_->WorkWork(handler);
+                case kAutoCycle: {
+                    AutoCycleData *handler = (AutoCycleData *)msg->pdata;
+                    if (handler->cycling_) {
+                        parent_->ProcessFunction(handler->oper_, handler->data_);
+                        parent_->ToNextCycle(handler);
                     } else {
-                        /* std::cout << "MORE-WORK!" << std::endl; */
                         // handler->quit_ = true;
                         delete handler;
                     }
@@ -190,6 +185,7 @@ private:
         Peon *parent_;
     };
 
+    int type_;
     rtc::Thread *thread_;
     PeonHandler handler_;
 };
@@ -200,7 +196,7 @@ class Service : public Peon
 {
 public:
     Service(rtc::Thread *thread)
-        : Peon(thread) {}
+        : Peon(233, thread) {}
     virtual ~Service() {}
 
     enum Operations {
@@ -221,7 +217,7 @@ public:
         int hengha_;
     };
 
-    void *DataDup(int oper, void *data)
+    void *DataDupFunction(int oper, void *data)
     {
         const struct {
             enum Operations oper_;
@@ -243,20 +239,20 @@ public:
             size = 1024;
         void *data_tmp = malloc(size);
         memmove(data_tmp, data, size);
-        std::cout << "DataDup Service: " << oper
+        std::cout << "DataDupFunction Service: " << oper
                   << ", size: " << size << ", data: " << data_tmp << std::endl;
         return data_tmp;
     }
 
-    void DataFree(int oper, void *data)
+    void DataFreeFunction(int oper, void *data)
     {
-        std::cout << "DataFree Service: " << oper << ", data: " << data << std::endl;
+        std::cout << "DataFreeFunction Service: " << oper << ", data: " << data << std::endl;
         free(data);
     }
 
-    int Process(int oper, void *data)
+    int ProcessFunction(int oper, void *data)
     {
-        std::cout << "Process Service: " << oper << std::endl;
+        std::cout << "ProcessFunction Service: " << oper << std::endl;
 
         switch (oper) {
             case kHeng: {
@@ -264,13 +260,13 @@ public:
                 std::cout << "Heng: " << data_tmp->heng_ << std::endl;
                 HengHaData count;
                 count.hengha_ = 0;
-                handler_ = ReadyToWork(kHengHa, &count, 200);
+                handler_ = EnterCycle(kHengHa, &count, 200);
                 break;
             }
             case kHa: {
                 HaData *data_tmp = (HaData *)data;
                 std::cout << "Ha: " << data_tmp->ha_ << std::endl;
-                MoreWork(handler_);
+                ExitCycle(handler_);
                 break;
             }
             case kHengHa: {
@@ -287,22 +283,22 @@ public:
         return 0xdeadbeaf;
     }
 
-    void Report(int oper, void *data, int result)
+    void ReportFunction(int oper, void *data, int result)
     {
         (void)oper;
         (void)data;
-        printf("Report Service: %#x\n", result);
+        printf("ReportFunction Service: %#x\n", result);
     }
 
 private:
-    WorkWorkData *handler_;
+    AutoCycleData *handler_;
 };
 
 class Adapter : public Peon
 {
 public:
     Adapter(rtc::Thread *thread, Service *service)
-        : Peon(thread),
+        : Peon(69, thread),
           service_(service) {}
     virtual ~Adapter() {}
 
@@ -319,7 +315,7 @@ public:
         int haha_;
     };
 
-    void *DataDup(int oper, void *data)
+    void *DataDupFunction(int oper, void *data)
     {
         const struct {
             enum Operations oper_;
@@ -340,20 +336,20 @@ public:
             size = 1024;
         void *data_tmp = malloc(size);
         memmove(data_tmp, data, size);
-        std::cout << "DataDup Adapter: " << oper
+        std::cout << "DataDupFunction Adapter: " << oper
                   << ", size: " << size << ", data: " << data_tmp << std::endl;
         return data_tmp;
     }
 
-    void DataFree(int oper, void *data)
+    void DataFreeFunction(int oper, void *data)
     {
-        std::cout << "DataFree Adapter: " << oper << ", data: " << data << std::endl;
+        std::cout << "DataFreeFunction Adapter: " << oper << ", data: " << data << std::endl;
         free(data);
     }
 
-    int Process(int oper, void *data)
+    int ProcessFunction(int oper, void *data)
     {
-        std::cout << "Process Adapter: " << oper << std::endl;
+        std::cout << "ProcessFunction Adapter: " << oper << std::endl;
 
         switch (oper) {
             case kHengHeng: {
@@ -380,42 +376,46 @@ public:
         return 0xdeadbeaf;
     }
 
-    void Report(int oper, void *data, int result)
+    void ReportFunction(int oper, void *data, int result)
     {
         (void)oper;
         (void)data;
         // bug: data is changed when using |std::hex|, for it changes all numerics to hex after using it
-        // std::cout << "Report Adapter: " << std::hex << result << std::endl;
-        printf("Report Adapter: %#x\n", result);
+        // std::cout << "ReportFunction Adapter: " << std::hex << result << std::endl;
+        printf("ReportFunction Adapter: %#x\n", result);
     }
 
     // error: marked ‘override’, but does not override
     int SyncCall(int oper, void *data) /* override */
     {
-        return Process(oper, data);
+        return ProcessFunction(oper, data);
     }
 
 private:
     Service *service_;
 };
 
-class Project1
+class Project
 {
 public :
-    Project1()
+    Project()
     {
-        thread_ = rtc::Thread::Create();
-        service_ = new Service(thread_.get());
-        adapter_ = new Adapter(thread_.get(), service_);
+        // thread_ = rtc::Thread::Create();
+        // service_ = new Service(thread_.get());
+        // adapter_ = new Adapter(thread_.get(), service_);
+        thread_ = new rtc::Thread(rtc::SocketServer::CreateDefault());
+        service_ = new Service(thread_);
+        adapter_ = new Adapter(thread_, service_);
         thread_->Start();
     }
-    ~Project1()
+    ~Project()
     {
         thread_->Stop();
         // will cause segment fault if |thread_| is deleted after |service_|
-        // once |service_| is deleted, the |DataFree| funcs and |parent_| in |Peon| will be *Wild*
-        // thus segment fault occurs when |WorkWorkData| dtor
-        thread_ = nullptr; // delete |std::unique_ptr|
+        // once |service_| is deleted, the |DataFreeFunction| funcs and |parent_| in |Peon| will be *Wild*
+        // thus segment fault occurs when |AutoCycleData| dtor
+        // thread_ = nullptr; // delete |std::unique_ptr|
+        delete thread_;
         delete adapter_;
         delete service_;
     }
@@ -424,21 +424,21 @@ public :
     Service *service_;
 
 private :
-    std::unique_ptr<rtc::Thread> thread_;
+    // std::unique_ptr<rtc::Thread> thread_;
+    rtc::Thread *thread_;
 };
 
 int main(void)
 {
-    Project1 project1;
+    Project project;
     void *data = malloc(111);
     *(int *)data = 1024;
-    project1.adapter_->AsyncMsg(Adapter::kHengHeng, data);
-    sleep(1);
-    project1.adapter_->SyncCall(Adapter::kHaHa, data);
+    project.adapter_->AsyncMsg(Adapter::kHengHeng, data);
+    rtc::Thread::Current()->SleepMs(1000); // |hengha_| should be 1000/200+1=6
+    project.adapter_->SyncCall(Adapter::kHaHa, data);
     free(data);
 
     rtc::ThreadManager::Instance()->UnwrapCurrentThread();
-    // sleep(1);
 
     return 0;
 }
