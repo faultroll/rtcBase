@@ -108,7 +108,7 @@ bool PlatformThread::IsRunning() const {
 #endif  // defined(WEBRTC_WIN)
 }
 
-PlatformThreadRef PlatformThread::GetThreadRef() const {
+Thrd PlatformThread::GetThreadRef() const {
 #if defined(WEBRTC_WIN)
   return thread_id_;
 #else
@@ -147,7 +147,7 @@ void PlatformThread::Stop() {
 // All implementations will need to be aware of how the thread should be stopped
 // and encouraging a busy polling loop, can be costly in terms of power and cpu.
 void PlatformThread::Run() {
-  rtc::SetCurrentThreadName(name_.c_str());
+  Rtc_ThrdSetName(name_.c_str());
 
   if (run_function_) {
     SetPriority(priority_);
@@ -187,7 +187,7 @@ void PlatformThread::Run() {
     }
     ++sequence_nr;
 #endif
-    ThreadYield();
+    Rtc_ThrdYield();
 #if defined(WEBRTC_WIN)
     /* // Alertable sleep to permit RaiseFlag to run and update |stop_|.
     SleepEx(0, true); */

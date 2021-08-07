@@ -64,7 +64,7 @@ class PlatformThread {
 
   // Returns an identifier for the worker thread that can be used to do
   // thread checks.
-  PlatformThreadRef GetThreadRef() const;
+  Thrd GetThreadRef() const;
 
   // Stops (joins) the spawned thread.
   void Stop();

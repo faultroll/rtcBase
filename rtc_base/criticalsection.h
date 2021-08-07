@@ -67,7 +67,7 @@ class RTC_LOCKABLE CriticalSection {
 #elif defined(WEBRTC_POSIX)
   mutable pthread_mutex_t mutex_;
 # if RTC_DCRIT_IS_ON
-  mutable PlatformThreadRef thread_;  // Only used by RTC_DCHECKs.
+  mutable Thrd thread_;  // Only used by RTC_DCHECKs.
   mutable int recursion_count_;       // Only used by RTC_DCHECKs.
 # endif  // RTC_DCRIT_IS_ON
 #else  // !defined(WEBRTC_WIN) && !defined(WEBRTC_POSIX)

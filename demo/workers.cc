@@ -104,6 +104,8 @@ public:
         delete handler; */
     }
 
+    int type_;
+
 private:
     class OnePushData : public rtc::MessageData
     {
@@ -185,19 +187,32 @@ private:
         Peon *parent_;
     };
 
-    int type_;
     rtc::Thread *thread_;
     PeonHandler handler_;
 };
 
+//
+
 #include <string.h>
 
-class Service : public Peon
+enum Services {
+    kAlpha,
+    kDelta,
+};
+
+class ServiceAlpha : public Peon
 {
 public:
-    Service(rtc::Thread *thread)
-        : Peon(233, thread) {}
-    virtual ~Service() {}
+    // singleton
+    ServiceAlpha *Instance(rtc::Thread *thread)
+    {
+        static ServiceAlpha *const service = new ServiceAlpha(thread);
+        return service;
+    }
+
+    ServiceAlpha(rtc::Thread *thread)
+        : Peon(kAlpha, thread) {}
+    virtual ~ServiceAlpha() {}
 
     enum Operations {
         kHeng,
@@ -239,20 +254,22 @@ public:
             size = 1024;
         void *data_tmp = malloc(size);
         memmove(data_tmp, data, size);
-        std::cout << "DataDupFunction Service: " << oper
-                  << ", size: " << size << ", data: " << data_tmp << std::endl;
+        std::cout << "DataDupFunction Service" << type_ << ": "
+                  << oper << ", size: " << size << ", data: " << data_tmp << std::endl;
         return data_tmp;
     }
 
     void DataFreeFunction(int oper, void *data)
     {
-        std::cout << "DataFreeFunction Service: " << oper << ", data: " << data << std::endl;
+        std::cout << "DataFreeFunction Service" << type_ << ": "
+                  << oper << ", data: " << data << std::endl;
         free(data);
     }
 
     int ProcessFunction(int oper, void *data)
     {
-        std::cout << "ProcessFunction Service: " << oper << std::endl;
+        std::cout << "ProcessFunction Service" << type_ << ": "
+                  << oper << std::endl;
 
         switch (oper) {
             case kHeng: {
@@ -287,20 +304,27 @@ public:
     {
         (void)oper;
         (void)data;
-        printf("ReportFunction Service: %#x\n", result);
+        printf("ReportFunction Service%d: %#x\n", type_, result);
     }
 
 private:
     AutoCycleData *handler_;
 };
 
-class Adapter : public Peon
+//
+
+enum Adapters {
+    kAAA,
+    kBBB,
+};
+
+class AdapterAAA : public Peon
 {
 public:
-    Adapter(rtc::Thread *thread, Service *service)
-        : Peon(69, thread),
+    AdapterAAA(rtc::Thread *thread, ServiceAlpha *service)
+        : Peon(kAAA, thread),
           service_(service) {}
-    virtual ~Adapter() {}
+    virtual ~AdapterAAA() {}
 
     enum Operations {
         kHengHeng,
@@ -336,35 +360,37 @@ public:
             size = 1024;
         void *data_tmp = malloc(size);
         memmove(data_tmp, data, size);
-        std::cout << "DataDupFunction Adapter: " << oper
-                  << ", size: " << size << ", data: " << data_tmp << std::endl;
+        std::cout << "DataDupFunction Adapter" << type_ << ": "
+                  << oper << ", size: " << size << ", data: " << data_tmp << std::endl;
         return data_tmp;
     }
 
     void DataFreeFunction(int oper, void *data)
     {
-        std::cout << "DataFreeFunction Adapter: " << oper << ", data: " << data << std::endl;
+        std::cout << "DataFreeFunction Adapter" << type_ << ": "
+                  << oper << ", data: " << data << std::endl;
         free(data);
     }
 
     int ProcessFunction(int oper, void *data)
     {
-        std::cout << "ProcessFunction Adapter: " << oper << std::endl;
+        std::cout << "ProcessFunction Adapter" << type_ << ": "
+                  << oper << std::endl;
 
         switch (oper) {
             case kHengHeng: {
                 HengHengData *data_src = (HengHengData *)data;
-                Service::HengData *data_dst = new Service::HengData;
+                ServiceAlpha::HengData *data_dst = new ServiceAlpha::HengData;
                 data_dst->heng_ = data_src->hengheng_;
-                service_->SyncCall(Service::kHeng, data_dst);
+                service_->SyncCall(ServiceAlpha::kHeng, data_dst);
                 delete data_dst;
                 break;
             }
             case kHaHa: {
                 HaHaData *data_src = (HaHaData *)data;
-                Service::HaData *data_dst = new Service::HaData;
+                ServiceAlpha::HaData *data_dst = new ServiceAlpha::HaData;
                 data_dst->ha_ = data_src->haha_;
-                service_->SyncCall(Service::kHa, data);
+                service_->SyncCall(ServiceAlpha::kHa, data);
                 delete data_dst;
                 break;
             }
@@ -382,7 +408,7 @@ public:
         (void)data;
         // bug: data is changed when using |std::hex|, for it changes all numerics to hex after using it
         // std::cout << "ReportFunction Adapter: " << std::hex << result << std::endl;
-        printf("ReportFunction Adapter: %#x\n", result);
+        printf("ReportFunction Adapter%d: %#x\n", type_, result);
     }
 
     // error: marked ‘override’, but does not override
@@ -392,7 +418,7 @@ public:
     }
 
 private:
-    Service *service_;
+    ServiceAlpha *service_;
 };
 
 class Project
@@ -404,8 +430,8 @@ public :
         // service_ = new Service(thread_.get());
         // adapter_ = new Adapter(thread_.get(), service_);
         thread_ = new rtc::Thread(rtc::SocketServer::CreateDefault());
-        service_ = new Service(thread_);
-        adapter_ = new Adapter(thread_, service_);
+        service_ = new ServiceAlpha(thread_);
+        adapter_ = new AdapterAAA(thread_, service_);
         thread_->Start();
     }
     ~Project()
@@ -420,8 +446,8 @@ public :
         delete service_;
     }
 
-    Adapter *adapter_;
-    Service *service_;
+    AdapterAAA *adapter_;
+    ServiceAlpha *service_;
 
 private :
     // std::unique_ptr<rtc::Thread> thread_;
@@ -433,9 +459,9 @@ int main(void)
     Project project;
     void *data = malloc(111);
     *(int *)data = 1024;
-    project.adapter_->AsyncMsg(Adapter::kHengHeng, data);
+    project.adapter_->AsyncMsg(AdapterAAA::kHengHeng, data);
     rtc::Thread::Current()->SleepMs(1000); // |hengha_| should be 1000/200+1=6
-    project.adapter_->SyncCall(Adapter::kHaHa, data);
+    project.adapter_->SyncCall(AdapterAAA::kHaHa, data);
     free(data);
 
     rtc::ThreadManager::Instance()->UnwrapCurrentThread();

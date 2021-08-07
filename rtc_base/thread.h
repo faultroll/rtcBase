@@ -79,10 +79,10 @@ class ThreadManager {
   CriticalSection crit_;
   size_t processing_ RTC_GUARDED_BY(crit_) = 0;
 
-  PlatformTlsKey key_;
+  Tss key_;
 
   // The thread to potentially autowrap.
-  const PlatformThreadRef main_thread_ref_;
+  const Thrd main_thread_ref_;
 
   RTC_DISALLOW_COPY_AND_ASSIGN(ThreadManager);
 };
@@ -415,9 +415,9 @@ class RTC_LOCKABLE Thread {
   HANDLE thread_ = nullptr;
   DWORD thread_id_ = 0;
 #endif */
-  static const PlatformThreadRef kThreadRefNone = static_cast<PlatformThreadRef>(0);
+  static const Thrd kThreadRefNone = static_cast<Thrd>(0);
   PlatformThread* thread_;
-  PlatformThreadRef thread_ref_;
+  Thrd thread_ref_;
 
   // Indicates whether or not ownership of the worker thread lies with
   // this instance or not. (i.e. owned_ == !wrapped).

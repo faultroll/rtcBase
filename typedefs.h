@@ -17,14 +17,14 @@
 // TODO Put macros without RTC_ here, all macros be RTC_XXX except here
 // eg. DCHECK_ALWAYS_ON DCRIT_ALWAYS_ON DLOG_ALWAYS_ON NDEBUG ...
 
-#ifndef NO_RETURN
+#ifndef RTC_NORETURN
 // Annotate a function that will not return control flow to the caller.
 #if defined(_MSC_VER)
-#define NO_RETURN __declspec(noreturn)
+#define RTC_NORETURN __declspec(noreturn)
 #elif defined(__GNUC__)
-#define NO_RETURN __attribute__ ((__noreturn__))
+#define RTC_NORETURN __attribute__ ((__noreturn__))
 #else
-#define NO_RETURN
+#define RTC_NORETURN
 #endif
 #endif
 

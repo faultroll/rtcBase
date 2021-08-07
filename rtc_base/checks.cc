@@ -64,7 +64,7 @@ class FatalMessage {
   FatalMessage(const char* file, int line);
   // Used for RTC_CHECK_EQ(), etc. Takes ownership of the given string.
   FatalMessage(const char* file, int line, std::string* result);
-  NO_RETURN ~FatalMessage();
+  RTC_NORETURN ~FatalMessage();
 
   std::ostream& stream() { return stream_; }
 
@@ -85,7 +85,7 @@ FatalMessage::FatalMessage(const char* file, int line, std::string* result) {
   delete result;
 }
 
-NO_RETURN FatalMessage::~FatalMessage() {
+RTC_NORETURN FatalMessage::~FatalMessage() {
   fflush(stdout);
   fflush(stderr);
   stream_ << std::endl << "#" << std::endl;
@@ -123,6 +123,6 @@ template std::string* MakeCheckOpString<std::string, std::string>(
 }  // namespace rtc
 
 // Function to call from the C version of the RTC_CHECK and RTC_DCHECK macros.
-NO_RETURN void rtc_FatalMessage(const char* file, int line, const char* msg) {
+RTC_NORETURN void rtc_FatalMessage(const char* file, int line, const char* msg) {
   rtc::FatalMessage(file, line).stream() << msg;
 }

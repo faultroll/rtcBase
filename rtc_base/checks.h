@@ -25,7 +25,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-NO_RETURN void rtc_FatalMessage(const char* file, int line, const char* msg);
+RTC_NORETURN void rtc_FatalMessage(const char* file, int line, const char* msg);
 #ifdef __cplusplus
 }  // extern "C"
 #endif
@@ -233,7 +233,7 @@ class FatalMessage {
   FatalMessage(const char* file, int line);
   // Used for RTC_CHECK_EQ(), etc. Takes ownership of the given string.
   FatalMessage(const char* file, int line, std::string* result);
-  NO_RETURN ~FatalMessage();
+  RTC_NORETURN ~FatalMessage();
 
   std::ostream& stream() { return stream_; }
 

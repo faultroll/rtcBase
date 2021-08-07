@@ -11,60 +11,90 @@
 #ifndef RTC_BASE_PLATFORM_THREAD_TYPES_H_
 #define RTC_BASE_PLATFORM_THREAD_TYPES_H_
 
+// mimic c11 <threads.h> from https://github.com/tinycthread/tinycthread
+
 #if defined(WEBRTC_WIN)
-#include <winsock2.h>
-#include <windows.h>
+    #include <winsock2.h>
+    #include <windows.h>
 #elif defined(WEBRTC_POSIX)
-#include <pthread.h>
-#include <unistd.h>
+    #include <pthread.h>
+    #include <unistd.h>
+#else
+    #include <threads.h>  // c11 thread
 #endif
 
-namespace rtc {
+// namespace rtc {
+
+// Thread
 #if defined(WEBRTC_WIN)
-typedef DWORD PlatformThreadId;
-typedef DWORD PlatformThreadRef;
-typedef const DWORD PlatformTlsKey;
+    typedef HANDLE Thrd;
 #elif defined(WEBRTC_POSIX)
-typedef pid_t PlatformThreadId;
-typedef pthread_t PlatformThreadRef;
-typedef pthread_key_t PlatformTlsKey;
+    typedef pthread_t Thrd;
+#else // c11 <threads.h>
+    typedef thrd_t Thrd;
 #endif
 
-// Retrieve the ID of the current thread.
-PlatformThreadId CurrentThreadId();
+// Thread start function.
+// Any thread that is started with the |Rtc_ThrdCreate| function must be
+// started through a function of this type.
+typedef int (*ThrdStartFunction)(void *arg);
+
+int Rtc_ThrdCreate(Thrd *thr, ThrdStartFunction func, void *arg);
 
 // Retrieves a reference to the current thread. On Windows, this is the same
 // as CurrentThreadId. On other platforms it's the pthread_t returned by
 // pthread_self().
-PlatformThreadRef CurrentThreadRef();
+Thrd Rtc_ThrdCurrent(void);
+
+// Dispose of any resources allocated to the thread when that thread exits
+// int Rtc_ThrdDetach(Thrd thr);
 
 // Compares two thread identifiers for equality.
-bool IsThreadRefEqual(const PlatformThreadRef& a, const PlatformThreadRef& b);
+bool Rtc_ThrdEqual(Thrd thr0, Thrd thr1);
 
-// Sets the current thread name.
-void SetCurrentThreadName(const char* name);
+// Terminate execution of the calling thread
+// RTC_NORETURN void Rtc_ThrdExit(void);
 
-// Create a TLs(Thread Local-storage) or TsS(Thread-specific Storage)
-PlatformTlsKey AllocTls();
-
-// Create a TLS(Thread Local Storage)
-void FreeTls(PlatformTlsKey key);
-
-// Get the value of key
-void *GetTlsValue(PlatformTlsKey key);
-
-// Set the value of key
-void SetTlsValue(PlatformTlsKey key, const void *value);
+// Wait for a thread to terminate
+int Rtc_ThrdJoin(Thrd thr);
 
 // Sleeps the calling thread for the specified number of milliseconds, during
 // which time no processing is performed. Returns false if sleeping was
 // interrupted by a signal (POSIX only).
-bool ThreadSleep(int milliseconds);
+bool Rtc_ThrdSleep(int milliseconds);
 
-// Yield execution to another thread. Permit other threads to run, 
+// Yield execution to another thread. Permit other threads to run,
 // even if current thread would ordinarily continue to run.
-void ThreadYield(void);
+void Rtc_ThrdYield(void);
 
-}  // namespace rtc
+// Sets the current thread name.
+void Rtc_ThrdSetName(const char *name);
+
+// TLs(Thread Local-storage) or TsS(Thread-specific Storage)
+#if defined(WEBRTC_WIN)
+    typedef DWORD Tss;
+#elif defined(WEBRTC_POSIX)
+    typedef pthread_key_t Tss;
+#else // c11 <threads.h>
+    typedef tss_t Tss;
+#endif
+
+// Destructor function for a TsS
+// typedef void (*TssDtorFunction)(void *val);
+
+// Create a TsS
+// int Rtc_TssCreate(Tss *key, TssDtorFunction dtor);
+Tss Rtc_TssCreate(void);
+
+// Delete a TsS
+void Rtc_TssDelete(Tss key);
+
+// Get the value for a TsS
+void *Rtc_TssGet(Tss key);
+
+// Set the value for a TsS
+int Rtc_TssSet(Tss key, void *val);
+
+// }  // namespace rtc
 
 #endif  // RTC_BASE_PLATFORM_THREAD_TYPES_H_

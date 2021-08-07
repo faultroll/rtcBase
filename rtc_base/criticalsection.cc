@@ -53,7 +53,7 @@ void CriticalSection::Enter() const RTC_EXCLUSIVE_LOCK_FUNCTION() {
 # if RTC_DCRIT_IS_ON
   if (!recursion_count_) {
     RTC_DCHECK(!thread_);
-    thread_ = CurrentThreadRef();
+    thread_ = Rtc_ThrdCurrent();
   } else {
     RTC_DCHECK(CurrentThreadIsOwner());
   }
@@ -74,7 +74,7 @@ bool CriticalSection::TryEnter() const RTC_EXCLUSIVE_TRYLOCK_FUNCTION(true) {
 # if RTC_DCRIT_IS_ON
   if (!recursion_count_) {
     RTC_DCHECK(!thread_);
-    thread_ = CurrentThreadRef();
+    thread_ = Rtc_ThrdCurrent();
   } else {
     RTC_DCHECK(CurrentThreadIsOwner());
   }
@@ -114,7 +114,7 @@ bool CriticalSection::CurrentThreadIsOwner() const {
          reinterpret_cast<HANDLE>(static_cast<size_t>(GetCurrentThreadId()));
 #elif defined(WEBRTC_POSIX)
 # if RTC_DCRIT_IS_ON
-  return IsThreadRefEqual(thread_, CurrentThreadRef());
+  return Rtc_ThrdEqual(thread_, Rtc_ThrdCurrent());
 # else
   return true;
 # endif  // RTC_DCRIT_IS_ON
@@ -154,7 +154,7 @@ void GlobalLockPod::Lock() {
 #else
     nanosleep(&ts_null, nullptr);
 #endif */
-    ThreadYield();
+    Rtc_ThrdYield();
   }
 }
 
