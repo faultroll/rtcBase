@@ -14,7 +14,6 @@
 #include <string>
 
 #include "rtc_base/constructormagic.h"
-#include "rtc_base/event.h"
 #include "rtc_base/platform_thread_types.h"
 
 namespace rtc {
@@ -24,22 +23,6 @@ namespace rtc {
 // more work to do and that the thread can be released.
 typedef void (*ThreadRunFunction)(void*);
 
-enum ThreadPriority {
-#ifdef WEBRTC_WIN
-  kLowPriority = THREAD_PRIORITY_BELOW_NORMAL,
-  kNormalPriority = THREAD_PRIORITY_NORMAL,
-  kHighPriority = THREAD_PRIORITY_ABOVE_NORMAL,
-  kHighestPriority = THREAD_PRIORITY_HIGHEST,
-  kRealtimePriority = THREAD_PRIORITY_TIME_CRITICAL
-#else
-  kLowPriority = 1,
-  kNormalPriority = 2,
-  kHighPriority = 3,
-  kHighestPriority = 4,
-  kRealtimePriority = 5
-#endif
-};
-
 // Represents a simple worker thread.  The implementation must be assumed
 // to be single threaded, meaning that all methods of the class, must be
 // called from the same thread, including instantiation.
@@ -48,7 +31,7 @@ class PlatformThread {
   PlatformThread(ThreadRunFunction func,
                  void* obj,
                  const char* name = "Thread",
-                 ThreadPriority priority = kNormalPriority);
+                 ThrdPrio priority = kNormalPrio);
   virtual ~PlatformThread();
 
   // Sets the thread's name. Must be called before Start().
@@ -68,10 +51,10 @@ class PlatformThread {
 
   // Stops (joins) the spawned thread.
   void Stop();
-
+  
   // Set the priority of the thread. Must be called when thread is running.
   // TODO(tommi): Make private and only allow public support via ctor.
-  bool SetPriority(ThreadPriority priority);
+  bool SetPriority(ThrdPrio priority);
 
  protected:
 #if defined(WEBRTC_WIN)
@@ -83,24 +66,20 @@ class PlatformThread {
   void Run();
 
   ThreadRunFunction const run_function_ = nullptr;
-  const ThreadPriority priority_ = kNormalPriority;
+  const ThrdPrio priority_ = kNormalPrio;
   void* const obj_;
   // TODO(pbos): Make sure call sites use string literals and update to a const
   // char* instead of a std::string.
   /* const */ std::string name_;
+  
+  static int StartThread(void* param);
+  Thrd thread_;
 #if defined(WEBRTC_WIN)
-  static DWORD WINAPI StartThread(void* param);
-
   bool stop_ = false;
-  HANDLE thread_ = nullptr;
-  DWORD thread_id_ = 0;
 #else
-  static void* StartThread(void* param);
-
   // An atomic flag that we use to stop the thread. Only modified on the
   // controlling thread and checked on the worker thread.
   volatile int stop_flag_ = 0;
-  pthread_t thread_ = 0;
 #endif  // defined(WEBRTC_WIN)
   RTC_DISALLOW_COPY_AND_ASSIGN(PlatformThread);
 };

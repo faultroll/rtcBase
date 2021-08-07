@@ -18,32 +18,6 @@
 #include "rtc_base/thread_annotations.h"
 #include "typedefs.h"  // NOLINT(build/include)
 
-#if !defined(NDEBUG) || defined(DCRIT_ALWAYS_ON)
-#define RTC_DCRIT_IS_ON 1
-#else
-#define RTC_DCRIT_IS_ON 0
-#endif
-
-#if defined(WEBRTC_WIN)
-// Include winsock2.h before including <windows.h> to maintain consistency with
-// win32.h.  We can't include win32.h directly here since it pulls in
-// headers such as basictypes.h which causes problems in Chromium where webrtc
-// exists as two separate projects, webrtc and libjingle.
-#include <winsock2.h>
-#include <windows.h>
-#include <sal.h>  // must come after windows headers.
-#endif  // defined(WEBRTC_WIN)
-
-#if defined(WEBRTC_POSIX)
-#include <pthread.h>
-#endif
-
-#if RTC_DCRIT_IS_ON
-#define CS_DEBUG_CODE(x) x
-#else  // RTC_DCRIT_IS_ON
-#define CS_DEBUG_CODE(x)
-#endif  // RTC_DCRIT_IS_ON
-
 namespace rtc {
 
 // Locking methods (Enter, TryEnter, Leave)are const to permit protecting
@@ -62,17 +36,11 @@ class RTC_LOCKABLE CriticalSection {
   // Use only for RTC_DCHECKing.
   bool CurrentThreadIsOwner() const;
 
-#if defined(WEBRTC_WIN)
-  mutable CRITICAL_SECTION crit_;
-#elif defined(WEBRTC_POSIX)
-  mutable pthread_mutex_t mutex_;
-# if RTC_DCRIT_IS_ON
-  mutable Thrd thread_;  // Only used by RTC_DCHECKs.
-  mutable int recursion_count_;       // Only used by RTC_DCHECKs.
-# endif  // RTC_DCRIT_IS_ON
-#else  // !defined(WEBRTC_WIN) && !defined(WEBRTC_POSIX)
-# error Unsupported platform.
-#endif
+  mutable Mtx mutex_;
+#if RTC_DCHECK_IS_ON
+  mutable Thrd thread_;           // Only used by RTC_DCHECKs.
+  mutable int recursion_count_;   // Only used by RTC_DCHECKs.
+#endif  // RTC_DCHECK_IS_ON
 };
 
 // CritScope, for serializing execution through a scope.
@@ -97,17 +65,14 @@ class TryCritScope {
  public:
   explicit TryCritScope(const CriticalSection* cs);
   ~TryCritScope();
-#if defined(WEBRTC_WIN)
-  _Check_return_ bool locked() const;
-#elif defined(WEBRTC_POSIX)
-  bool locked() const __attribute__ ((__warn_unused_result__));
-#else  // !defined(WEBRTC_WIN) && !defined(WEBRTC_POSIX)
-# error Unsupported platform.
-#endif
+  RTC_CHECKRETURN bool locked() const;
+
  private:
   const CriticalSection* const cs_;
   const bool locked_;
-  mutable bool lock_was_called_;  // Only used by RTC_DCHECKs.
+#if RTC_DCHECK_IS_ON
+  mutable bool lock_was_called_;  // Only used by RTC_DCHECK
+#endif  // RTC_DCHECK_IS_ON.
   RTC_DISALLOW_COPY_AND_ASSIGN(TryCritScope);
 };
 

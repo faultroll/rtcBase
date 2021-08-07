@@ -14,8 +14,13 @@
 // mimic c11 <threads.h> from https://github.com/tinycthread/tinycthread
 
 #if defined(WEBRTC_WIN)
+    // Include winsock2.h before including <windows.h> to maintain consistency with
+    // win32.h.  We can't include win32.h directly here since it pulls in
+    // headers such as basictypes.h which causes problems in Chromium where webrtc
+    // exists as two separate projects, webrtc and libjingle.
     #include <winsock2.h>
     #include <windows.h>
+    #include <sal.h>  // must come after windows headers.
 #elif defined(WEBRTC_POSIX)
     #include <pthread.h>
     #include <unistd.h>
@@ -34,11 +39,11 @@
     typedef thrd_t Thrd;
 #endif
 
-// Thread start function.
 // Any thread that is started with the |Rtc_ThrdCreate| function must be
 // started through a function of this type.
 typedef int (*ThrdStartFunction)(void *arg);
 
+// Create a new thread
 int Rtc_ThrdCreate(Thrd *thr, ThrdStartFunction func, void *arg);
 
 // Retrieves a reference to the current thread. On Windows, this is the same
@@ -67,6 +72,25 @@ bool Rtc_ThrdSleep(int milliseconds);
 // even if current thread would ordinarily continue to run.
 void Rtc_ThrdYield(void);
 
+typedef enum ThrdPrio_ {
+#ifdef WEBRTC_WIN
+    kLowPrio = THREAD_PRIORITY_BELOW_NORMAL,
+    kNormalPrio = THREAD_PRIORITY_NORMAL,
+    kHighPrio = THREAD_PRIORITY_ABOVE_NORMAL,
+    kHighestPrio = THREAD_PRIORITY_HIGHEST,
+    kRealtimePrio = THREAD_PRIORITY_TIME_CRITICAL,
+#else // #elif defined(WEBRTC_POSIX)
+    kLowPrio = 1,
+    kNormalPrio = 2,
+    kHighPrio = 3,
+    kHighestPrio = 4,
+    kRealtimePrio = 5,
+#endif
+} ThrdPrio;
+
+// Set the priority of the thread. Must be called when thread is running.
+bool Rtc_ThrdSetPrio(Thrd thr, ThrdPrio prio);
+
 // Sets the current thread name.
 void Rtc_ThrdSetName(const char *name);
 
@@ -94,6 +118,39 @@ void *Rtc_TssGet(Tss key);
 
 // Set the value for a TsS
 int Rtc_TssSet(Tss key, void *val);
+
+// Mutex
+#if defined(_TTHREAD_WIN32_)
+    typedef CRITICAL_SECTION Mtx;
+#elif defined(WEBRTC_POSIX)
+    typedef pthread_mutex_t Mtx;
+#else // c11 <threads.h>
+    typedef mtx_t Mtx;
+#endif
+
+// Create a mutex object
+int Rtc_MtxInit(Mtx *mtx);
+
+// Release any resources used by the given mutex
+void Rtc_MtxDestroy(Mtx *mtx);
+
+// Lock the given mutex
+// Blocks until the given mutex can be locked. If the mutex is non-recursive, and
+// the calling thread already has a lock on the mutex, this call will block forever.
+int Rtc_MtxLock(Mtx *mtx);
+
+// Lock the given mutex, or block until a specific point in time.
+// Blocks until either the given mutex can be locked, or the specified TIME_UTC
+// based time.
+// int Rtc_MtxTimedLock(mtx_t *mtx, int milliseconds);
+
+// Try to lock the given mutex
+// The specified mutex shall support either test and return or timeout. If the
+// mutex is already locked, the function returns without blocking.
+int Rtc_MtxTryLock(Mtx *mtx);
+
+// Unlock the given mutex
+int Rtc_MtxUnlock(Mtx *mtx);
 
 // }  // namespace rtc
 

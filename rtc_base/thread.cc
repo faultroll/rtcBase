@@ -127,11 +127,11 @@ void ThreadManager::SetCurrentThreadInternal(Thread* thread) {
 }
 
 void ThreadManager::SetCurrentThread(Thread* thread) {
-#if 0 // RTC_DLOG_IS_ON // TODO logs using checks (FatalMessage is Logging with abort)
+#if 0 // RTC_DCHECK_IS_ON // TODO logs using checks (FatalMessage is Logging with abort)
   if (CurrentThread() && thread) {
     /* RTC_DLOG(LS_ERROR) << "SetCurrentThread: Overwriting an existing value?"; */
   }
-#endif  // RTC_DLOG_IS_ON
+#endif  // RTC_DCHECK_IS_ON
 
   /* if (thread) {
     thread->EnsureIsCurrentTaskQueue();

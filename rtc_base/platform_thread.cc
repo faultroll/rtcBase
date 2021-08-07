@@ -20,23 +20,16 @@ namespace {
 void CALLBACK RaiseFlag(ULONG_PTR param) {
   *reinterpret_cast<bool*>(param) = true;
 }
-#else
-struct ThreadAttributes {
-  ThreadAttributes() { pthread_attr_init(&attr); }
-  ~ThreadAttributes() { pthread_attr_destroy(&attr); }
-  pthread_attr_t* operator&() { return &attr; }
-  pthread_attr_t attr;
-};
-#endif  // defined(WEBRTC_WIN)
+#endif
 }
 
 PlatformThread::PlatformThread(ThreadRunFunction func,
                                void* obj,
                                const char* name /*= "Thread"*/,
-                               ThreadPriority priority /*= kNormalPriority*/)
+                               ThrdPrio priority /*= kNormalPrio*/)
     : run_function_(func), priority_(priority), obj_(obj) {
   RTC_DCHECK(func);
-  RTC_DCHECK(!name_.empty());
+  // RTC_DCHECK(!name_.empty());
   // TODO(tommi): Consider lowering the limit to 15 (limit on Linux).
   RTC_DCHECK(name_.length() < 64);
   SetName(name, this);  // default name
@@ -45,8 +38,7 @@ PlatformThread::PlatformThread(ThreadRunFunction func,
 PlatformThread::~PlatformThread() {
 #if defined(WEBRTC_WIN)
   RTC_DCHECK(!thread_);
-  RTC_DCHECK(!thread_id_);
-#endif  // defined(WEBRTC_WIN)
+#endif
 }
 
 bool PlatformThread::SetName(const std::string& name, const void* obj) {
@@ -63,80 +55,59 @@ bool PlatformThread::SetName(const std::string& name, const void* obj) {
   return true;
 }
 
-#if defined(WEBRTC_WIN)
-DWORD WINAPI PlatformThread::StartThread(void* param) {
-  // The GetLastError() function only returns valid results when it is called
-  // after a Win32 API function that returns a "failed" result. A crash dump
-  // contains the result from GetLastError() and to make sure it does not
-  // falsely report a Windows error we call SetLastError here.
-  ::SetLastError(ERROR_SUCCESS);
+int PlatformThread::StartThread(void* param) {
   static_cast<PlatformThread*>(param)->Run();
   return 0;
 }
-#else
-void* PlatformThread::StartThread(void* param) {
-  static_cast<PlatformThread*>(param)->Run();
-  return 0;
-}
-#endif  // defined(WEBRTC_WIN)
 
 void PlatformThread::Start() {
   RTC_DCHECK(!thread_) /* << "Thread already started?" */;
+
 #if defined(WEBRTC_WIN)
   stop_ = false;
+#endif
 
-  // See bug 2902 for background on STACK_SIZE_PARAM_IS_A_RESERVATION.
-  // Set the reserved stack stack size to 1M, which is the default on Windows
-  // and Linux.
-  thread_ = ::CreateThread(nullptr, 1024 * 1024, &StartThread, this,
-                           STACK_SIZE_PARAM_IS_A_RESERVATION, &thread_id_);
+  RTC_CHECK_EQ(0, Rtc_ThrdCreate(&thread_, &StartThread, this));
+
+#if defined(WEBRTC_WIN)
   RTC_CHECK(thread_) /* << "CreateThread failed" */;
-  RTC_DCHECK(thread_id_);
-#else
-  ThreadAttributes attr;
-  // Set the stack stack size to 1M.
-  pthread_attr_setstacksize(&attr, 1024 * 1024);
-  RTC_CHECK_EQ(0, pthread_create(&thread_, &attr, &StartThread, this));
-#endif  // defined(WEBRTC_WIN)
+#endif
 }
 
 bool PlatformThread::IsRunning() const {
-#if defined(WEBRTC_WIN)
-  return thread_ != nullptr;
-#else
   return thread_ != 0;
-#endif  // defined(WEBRTC_WIN)
 }
 
 Thrd PlatformThread::GetThreadRef() const {
-#if defined(WEBRTC_WIN)
-  return thread_id_;
-#else
-  return thread_;
-#endif  // defined(WEBRTC_WIN)
+  return Rtc_ThrdCurrent();
 }
 
 void PlatformThread::Stop() {
   if (!IsRunning())
     return;
 
+  if (!run_function_) {
 #if defined(WEBRTC_WIN)
-  // Set stop_ to |true| on the worker thread.
-  bool queued = QueueAPC(&RaiseFlag, reinterpret_cast<ULONG_PTR>(&stop_));
-  // Queuing the APC can fail if the thread is being terminated.
-  RTC_CHECK(queued || GetLastError() == ERROR_GEN_FAILURE);
-  WaitForSingleObject(thread_, INFINITE);
-  CloseHandle(thread_);
-  thread_ = nullptr;
-  thread_id_ = 0;
+    // Set stop_ to |true| on the worker thread.
+    bool queued = QueueAPC(&RaiseFlag, reinterpret_cast<ULONG_PTR>(&stop_));
+    // Queuing the APC can fail if the thread is being terminated.
+    RTC_CHECK(queued || GetLastError() == ERROR_GEN_FAILURE);
 #else
-  if (!run_function_)
     RTC_CHECK_EQ(1, AtomicOps::Increment(&stop_flag_));
-  RTC_CHECK_EQ(0, pthread_join(thread_, nullptr));
-  if (!run_function_)
+#endif
+  }
+
+  RTC_CHECK_EQ(0, Rtc_ThrdJoin(thread_));
+
+#if defined(WEBRTC_WIN)
+  // Nothing
+#else
+  if (!run_function_) {
     AtomicOps::ReleaseStore(&stop_flag_, 0);
+  }
+#endif
+
   thread_ = 0;
-#endif  // defined(WEBRTC_WIN)
 }
 
 // TODO(tommi): Deprecate the loop behavior in PlatformThread.
@@ -150,7 +121,7 @@ void PlatformThread::Run() {
   Rtc_ThrdSetName(name_.c_str());
 
   if (run_function_) {
-    SetPriority(priority_);
+    Rtc_ThrdSetPrio(thread_, priority_);
     run_function_(obj_);
     return;
   }
@@ -187,19 +158,18 @@ void PlatformThread::Run() {
     }
     ++sequence_nr;
 #endif
+
+    // Alertable sleep to permit RaiseFlag to run and update |stop_|.
     Rtc_ThrdYield();
+
 #if defined(WEBRTC_WIN)
-    /* // Alertable sleep to permit RaiseFlag to run and update |stop_|.
-    SleepEx(0, true); */
   } while (!stop_);
 #else
-    /* static const struct timespec ts_null = {0, 0};
-    nanosleep(&ts_null, nullptr); */
   } while (!AtomicOps::AcquireLoad(&stop_flag_));
-#endif  // defined(WEBRTC_WIN)
+#endif
 }
 
-bool PlatformThread::SetPriority(ThreadPriority priority) {
+bool PlatformThread::SetPriority(ThrdPrio priority) {
 #if RTC_DCHECK_IS_ON
   if (run_function_) {
     // The non-deprecated way of how this function gets called, is that it must
@@ -211,44 +181,7 @@ bool PlatformThread::SetPriority(ThreadPriority priority) {
   }
 #endif
 
-#if defined(WEBRTC_WIN)
-  return SetThreadPriority(thread_, priority) != FALSE;
-#else
-  const int policy = SCHED_RR;
-  const int min_prio = sched_get_priority_min(policy);
-  const int max_prio = sched_get_priority_max(policy);
-  if (min_prio == -1 || max_prio == -1) {
-    return false;
-  }
-
-  if (max_prio - min_prio <= 2)
-    return false;
-
-  // Convert webrtc priority to system priorities:
-  sched_param param;
-  const int top_prio = max_prio - 1;
-  const int low_prio = min_prio + 1;
-  switch (priority) {
-    case kLowPriority:
-      param.sched_priority = low_prio;
-      break;
-    case kNormalPriority:
-      // The -1 ensures that the kHighPriority is always greater or equal to
-      // kNormalPriority.
-      param.sched_priority = (low_prio + top_prio - 1) / 2;
-      break;
-    case kHighPriority:
-      param.sched_priority = std::max(top_prio - 2, low_prio);
-      break;
-    case kHighestPriority:
-      param.sched_priority = std::max(top_prio - 1, low_prio);
-      break;
-    case kRealtimePriority:
-      param.sched_priority = top_prio;
-      break;
-  }
-  return pthread_setschedparam(thread_, policy, &param) == 0;
-#endif  // defined(WEBRTC_WIN)
+  return Rtc_ThrdSetPrio(thread_, priority);
 }
 
 #if defined(WEBRTC_WIN)

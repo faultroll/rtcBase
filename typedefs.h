@@ -28,6 +28,16 @@
 #endif
 #endif
 
+#ifndef RTC_CHECKRETURN
+#if defined(_MSC_VER)
+#define RTC_CHECKRETURN _Check_return_
+#elif defined(__GNUC__)
+#define RTC_CHECKRETURN __attribute__ ((__warn_unused_result__))
+#else
+#define RTC_CHECKRETURN
+#endif
+#endif
+
 // Prevent the compiler from warning about an unused variable. For example:
 //   int result = DoSomething();
 //   assert(result == 17);

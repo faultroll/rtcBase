@@ -11,6 +11,7 @@
 #include "rtc_base/platform_thread_types.h"
 #include "typedefs.h"  // NOLINT(build/include)
 #include <stdlib.h>
+#include <math.h>
 
 // namespace rtc {
 
@@ -131,6 +132,12 @@ int Rtc_ThrdDetach(Thrd thr)
 bool Rtc_ThrdEqual(Thrd thr0, Thrd thr1)
 {
 #if defined(WEBRTC_WIN)
+    /* // OwningThread has type HANDLE but actually contains the Thread ID:
+    // http://stackoverflow.com/questions/12675301/why-is-the-owningthread-member-of-critical-section-of-type-handle-when-it-is-de
+    // Converting through size_t avoids the VS 2015 warning C4312: conversion from
+    // 'type1' to 'type2' of greater size
+    return crit_.OwningThread ==
+           reinterpret_cast<HANDLE>(static_cast<size_t>(GetCurrentThreadId())); */
     return GetThreadId(thr0) == GetThreadId(thr1);
 #elif defined(WEBRTC_POSIX)
     return pthread_equal(thr0, thr1);
@@ -181,8 +188,8 @@ bool Rtc_ThrdSleep(int milliseconds)
 #if defined(WEBRTC_POSIX)
     // POSIX has both a usleep() and a nanosleep(), but the former is deprecated,
     // so we use nanosleep() even though it has greater precision than necessary.
-    int ret = nanosleep(&ts, NULL);
-    if (ret != 0) {
+    int result = nanosleep(&ts, NULL);
+    if (result != 0) {
         /* RTC_LOG_ERR(LS_WARNING) << "nanosleep() returning early"; */
         return false;
     }
@@ -203,6 +210,58 @@ void Rtc_ThrdYield(void)
     nanosleep(&ts_null, NULL);
 #else
     return thrd_yield();
+#endif
+}
+
+bool Rtc_ThrdSetPrio(Thrd thr, ThrdPrio prio)
+{
+    /* #if RTC_DCHECK_IS_ON
+      if (run_function_) {
+        // The non-deprecated way of how this function gets called, is that it must
+        // be called on the worker thread itself.
+      } else {
+        // In the case of deprecated use of this method, it must be called on the
+        // same thread as the PlatformThread object is constructed on.
+        RTC_DCHECK(IsRunning());
+      }
+    #endif */
+
+#if defined(WEBRTC_WIN)
+    return SetThreadPrio(thr, prio) != FALSE;
+#else // #elif defined(WEBRTC_POSIX)
+    const int policy = SCHED_RR;
+    const int min_prio = sched_get_priority_min(policy);
+    const int max_prio = sched_get_priority_max(policy);
+    if (min_prio == -1 || max_prio == -1)
+        return false;
+
+    if (max_prio - min_prio <= 2)
+        return false;
+
+    // Convert webrtc priority to system priorities:
+    sched_param param;
+    const int top_prio = max_prio - 1;
+    const int low_prio = min_prio + 1;
+    switch (prio) {
+        case kLowPrio:
+            param.sched_priority = low_prio;
+            break;
+        case kNormalPrio:
+            // The -1 ensures that the kHighPrio is always greater or equal to
+            // kNormalPrio.
+            param.sched_priority = (low_prio + top_prio - 1) / 2;
+            break;
+        case kHighPrio:
+            param.sched_priority = fmax(top_prio - 2, low_prio);
+            break;
+        case kHighestPrio:
+            param.sched_priority = fmax(top_prio - 1, low_prio);
+            break;
+        case kRealtimePrio:
+            param.sched_priority = top_prio;
+            break;
+    }
+    return pthread_setschedparam(thr, policy, &param) == 0;
 #endif
 }
 
@@ -281,6 +340,71 @@ int Rtc_TssSet(Tss key, void *val)
     return pthread_setspecific(key, val);
 #else
     return tss_set(key);
+#endif
+}
+
+int Rtc_MtxInit(Mtx *mtx)
+{
+#if defined(WEBRTC_WIN)
+    InitializeCriticalSection(mtx);
+    return 0;
+#elif defined(WEBRTC_POSIX)
+    int result;
+    pthread_mutexattr_t mutex_attribute;
+    pthread_mutexattr_init(&mutex_attribute);
+    pthread_mutexattr_settype(&mutex_attribute, PTHREAD_MUTEX_RECURSIVE);
+    result = pthread_mutex_init(mtx, &mutex_attribute);
+    pthread_mutexattr_destroy(&mutex_attribute);
+    return result;
+#else
+    return mtx_init(mtx, mtx_plain | mtx_recursive);
+#endif
+}
+
+void Rtc_MtxDestroy(Mtx *mtx)
+{
+#if defined(WEBRTC_WIN)
+    DeleteCriticalSection(mtx);
+#elif defined(WEBRTC_POSIX)
+    pthread_mutex_destroy(mtx);
+#else
+    mtx_destroy(mtx);
+#endif
+}
+
+int Rtc_MtxLock(Mtx *mtx)
+{
+#if defined(WEBRTC_WIN)
+    EnterCriticalSection(mtx);
+    return 0;
+#elif defined(WEBRTC_POSIX)
+    return pthread_mutex_lock(mtx);
+#else
+    return mtx_lock(mtx);
+#endif
+}
+
+// int Rtc_MtxTimedLock(mtx_t *mtx, int milliseconds)
+
+int Rtc_MtxTryLock(Mtx *mtx)
+{
+#if defined(WEBRTC_WIN)
+    return TryEnterCriticalSection(mtx) ? 0 : -1;
+#elif defined(WEBRTC_POSIX)
+    return pthread_mutex_trylock(mtx);
+#else
+    return mtx_trylock(mtx);
+#endif
+}
+
+int Rtc_MtxUnlock(Mtx *mtx)
+{
+#if defined(WEBRTC_WIN)
+    return LeaveCriticalSection(mtx);
+#elif defined(WEBRTC_POSIX)
+    return pthread_mutex_unlock(mtx);
+#else
+    return mtx_unlock(mtx);
 #endif
 }
 
