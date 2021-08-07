@@ -12,6 +12,7 @@
 #include "typedefs.h"  // NOLINT(build/include)
 #include <stdlib.h>
 #include <math.h>
+#include "rtc_base/timeutils.h"
 
 // namespace rtc {
 
@@ -34,7 +35,7 @@ typedef struct ThrdStartWrapperArgs_ {
     // after a Win32 API function that returns a "failed" result. A crash dump
     // contains the result from GetLastError() and to make sure it does not
     // falsely report a Windows error we call SetLastError here.
-    ::SetLastError(ERROR_SUCCESS);
+    SetLastError(ERROR_SUCCESS);
 #endif
 
     ThrdStartFunction fun;
@@ -81,8 +82,8 @@ int Rtc_ThrdCreate(Thrd *thr, ThrdStartFunction func, void *arg)
     // See bug 2902 for background on STACK_SIZE_PARAM_IS_A_RESERVATION.
     // Set the reserved stack stack size to 1M, which is the default on Windows
     // and Linux.
-    *thr = /* :: */CreateThread(nullptr, 1024 * 1024, &ThrdStartWrapperFunc, (LPVOID) ti,
-                                STACK_SIZE_PARAM_IS_A_RESERVATION, NULL);
+    *thr = CreateThread(NULL, 1024 * 1024, &ThrdStartWrapperFunc, (LPVOID) ti,
+                        STACK_SIZE_PARAM_IS_A_RESERVATION, NULL);
 
 #elif defined(WEBRTC_POSIX)
     pthread_attr_t attr;
@@ -174,17 +175,11 @@ int Rtc_ThrdJoin(Thrd thr)
 bool Rtc_ThrdSleep(int milliseconds)
 {
 #if defined(WEBRTC_WIN)
-    /* :: */Sleep(milliseconds);
+    Sleep(milliseconds);
     return true;
 #else
     struct timespec ts;
-    ts.tv_sec = milliseconds / 1000;
-    ts.tv_nsec = (milliseconds % 1000) * 1000000;
-    // Normalize.
-    if (ts.tv_nsec >= 1000000000) {
-        ts.tv_sec++;
-        ts.tv_nsec -= 1000000000;
-    }
+    TimeToTimespec(&ts, milliseconds);
 #if defined(WEBRTC_POSIX)
     // POSIX has both a usleep() and a nanosleep(), but the former is deprecated,
     // so we use nanosleep() even though it has greater precision than necessary.
@@ -204,7 +199,7 @@ void Rtc_ThrdYield(void)
 {
 #if defined(WEBRTC_WIN)
     // Alertable sleep to permit RaiseFlag to run and update |stop_|.
-    SleepEx(0, true); // ::Sleep(0);
+    SleepEx(0, true); // Sleep(0);
 #elif defined(WEBRTC_POSIX)
     static const struct timespec ts_null = {0, 0};
     nanosleep(&ts_null, NULL);
@@ -281,8 +276,8 @@ void Rtc_ThrdSetName(const char *name)
     } threadname_info = {0x1000, name, static_cast<DWORD>(-1), 0};
 
     __try {
-        ::RaiseException(0x406D1388, 0, sizeof(threadname_info) / sizeof(DWORD),
-                         reinterpret_cast<ULONG_PTR *>(&threadname_info));
+        RaiseException(0x406D1388, 0, sizeof(threadname_info) / sizeof(DWORD),
+                       reinterpret_cast<ULONG_PTR *>(&threadname_info));
     } __except (EXCEPTION_EXECUTE_HANDLER) {  // NOLINT
     }
 #elif defined(WEBRTC_POSIX)
@@ -407,5 +402,94 @@ int Rtc_MtxUnlock(Mtx *mtx)
     return mtx_unlock(mtx);
 #endif
 }
+
+#if 0
+int Rtc_CndInit(Cnd *cond)
+{
+#if defined(WEBRTC_WIN)
+    cond->waiter_count_ = 0;
+    // Init critical section
+    Rtc_MtxInit(&cond->waiter_mutex_);
+    // Init events
+    cond->events_[kCndEventToOne] = CreateEvent(NULL, false, false, NULL);
+    if (cond->events_[kCndEventToOne] == NULL) {
+        cond->events_[kCndEventToAll] = NULL;
+        return -1;
+    }
+    cond->events_[kCndEventToAll] = CreateEvent(NULL, true, false, NULL);
+    if (cond->events_[kCndEventToAll] == NULL) {
+        CloseHandle(cond->events_[kCndEventToOne]);
+        cond->events_[kCndEventToOne] = NULL;
+        return -1;
+    }
+    return 0;
+#elif defined(WEBRTC_POSIX)
+    return pthread_cond_init(cond, NULL);
+#else
+    return cnd_init(cond);
+#endif
+}
+
+void Rtc_CndDestroy(Cnd *cond)
+{
+#if defined(WEBRTC_WIN)
+    if (cond->events_[kCndEventToOne] != NULL) {
+        CloseHandle(cond->events_[kCndEventToOne]);
+    }
+    if (cond->events_[kCndEventToAll] != NULL) {
+        CloseHandle(cond->events_[kCndEventToAll]);
+    }
+    Rtc_MtxDestroy(&cond->waiter_mutex_);
+#elif defined(WEBRTC_POSIX)
+    pthread_cond_destroy(cond);
+#else
+    cnd_destroy(cond);
+#endif
+}
+
+int Rtc_CndSignal(Cnd *cond)
+{
+#if defined(_TTHREAD_WIN32_)
+    // TODO
+#elif defined(WEBRTC_POSIX)
+    return pthread_cond_signal(cond);
+#else
+    return cnd_signal(cond);
+#endif
+}
+
+int Rtc_CndBroadcast(Cnd *cond)
+{
+#if defined(WEBRTC_WIN)
+    // TODO
+#elif defined(WEBRTC_POSIX)
+    return pthread_cond_broadcast(cond);
+#else
+    return cnd_broadcast(cond);
+#endif
+}
+
+int Rtc_CndWait(Cnd *cond, Mtx *mtx)
+{
+#if defined(WEBRTC_WIN)
+    // TODO
+#elif defined(WEBRTC_POSIX)
+    return pthread_cond_wait(cond, mtx);
+#else
+    return cnd_wait(cond, mtx);
+#endif
+}
+
+int Rtc_CndTimedWait(Cnd *cond, Mtx *mtx, int milliseconds)
+{
+#if defined(WEBRTC_WIN)
+    // TODO
+#elif defined(WEBRTC_POSIX)
+    return pthread_cond_timedwait(cond, mtx, &ts);
+#else
+    return cnd_timedwait(cond, mtx, &ts);
+#endif
+}
+#endif
 
 // }  // namespace rtc

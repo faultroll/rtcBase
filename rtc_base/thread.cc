@@ -712,8 +712,10 @@ void Thread::Send(const Location& posted_from,
                   uint32_t id,
                   MessageData* pdata) {
   RTC_DCHECK(!IsQuitting());
-  if (IsQuitting())
+  if (IsQuitting()) {
+    delete pdata; // should we delete here, or let users control itself
     return;
+  }
 
   // Sent messages are sent to the MessageHandler directly, in the context
   // of "thread", like Win32 SendMessage. If in the right context,

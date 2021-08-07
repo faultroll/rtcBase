@@ -11,6 +11,8 @@
 #ifndef RTC_BASE_ATOMICOPS_H_
 #define RTC_BASE_ATOMICOPS_H_
 
+// TODO Mimic c11 <stdatomic.h>
+
 #if defined(WEBRTC_WIN)
 // Include winsock2.h before including <windows.h> to maintain consistency with
 // win32.h.  We can't include win32.h directly here since it pulls in

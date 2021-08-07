@@ -11,7 +11,7 @@
 #ifndef RTC_BASE_PLATFORM_THREAD_TYPES_H_
 #define RTC_BASE_PLATFORM_THREAD_TYPES_H_
 
-// mimic c11 <threads.h> from https://github.com/tinycthread/tinycthread
+// Mimic c11 <threads.h> from https://github.com/tinycthread/tinycthread
 
 #if defined(WEBRTC_WIN)
     // Include winsock2.h before including <windows.h> to maintain consistency with
@@ -25,6 +25,7 @@
     #include <pthread.h>
     #include <unistd.h>
 #else
+    #warning "Should define either WEBRTC_WIN or WEBRTC_POSIX."
     #include <threads.h>  // c11 thread
 #endif
 
@@ -120,7 +121,7 @@ void *Rtc_TssGet(Tss key);
 int Rtc_TssSet(Tss key, void *val);
 
 // Mutex
-#if defined(_TTHREAD_WIN32_)
+#if defined(WEBRTC_WIN)
     typedef CRITICAL_SECTION Mtx;
 #elif defined(WEBRTC_POSIX)
     typedef pthread_mutex_t Mtx;
@@ -142,7 +143,7 @@ int Rtc_MtxLock(Mtx *mtx);
 // Lock the given mutex, or block until a specific point in time.
 // Blocks until either the given mutex can be locked, or the specified TIME_UTC
 // based time.
-// int Rtc_MtxTimedLock(mtx_t *mtx, int milliseconds);
+// int Rtc_MtxTimedLock(Mtx *mtx, int milliseconds);
 
 // Try to lock the given mutex
 // The specified mutex shall support either test and return or timeout. If the
@@ -151,6 +152,57 @@ int Rtc_MtxTryLock(Mtx *mtx);
 
 // Unlock the given mutex
 int Rtc_MtxUnlock(Mtx *mtx);
+
+#if 0 // No use here
+// Condition variable
+#if defined(WEBRTC_WIN)
+enum {
+    kCndEventToOne, // signal
+    kCndEventToAll, // broadcast
+    kCndEventButt,
+};
+typedef struct Cnd_ {
+    HANDLE events_[kCndEventButt];  // Signal and broadcast event HANDLEs.
+    size_t waiter_count_;           // Count of the number of waiters.
+    Mtx waiter_mutex_;              // Serialize access to |waiter_count_|
+} Cnd;
+#elif defined(WEBRTC_POSIX)
+typedef pthread_cond_t Cnd;
+#else // c11 <threads.h>
+typedef cnd_t Cnd;
+#endif
+
+// Create a condition variable object
+int Rtc_CndInit(Cnd *cond);
+
+// Release any resources used by the given condition variable
+void Rtc_CndDestroy(Cnd *cond);
+
+// Signal a condition variable
+// Unblocks one of the threads that are blocked on the given condition variable
+// at the time of the call. If no threads are blocked on the condition variable
+// at the time of the call, the function does nothing and return success.
+// int Rtc_CndSignal(Cnd *cond);
+
+// Broadcast a condition variable.
+// Unblocks all of the threads that are blocked on the given condition variable
+// at the time of the call. If no threads are blocked on the condition variable
+// at the time of the call, the function does nothing and return success.
+// int Rtc_CndBroadcast(Cnd *cond);
+
+// Wait for a condition variable to become signaled.
+// The function atomically unlocks the given mutex and endeavors to block until
+// the given condition variable is signaled by a call to Rtc_Cndsignal or to Rtc_Cndbroadcast.
+// When the calling thread becomes unblocked it locks the mutex before it returns.
+// int Rtc_CndWait(Cnd *cond, Mtx *mtx);
+
+// Wait for a condition variable to become signaled.
+// The function atomically unlocks the given mutex and endeavors to block until
+// the given condition variable is signaled by a call to Rtc_Cndsignal or to
+// Rtc_Cndbroadcast, or until after the specified time. When the calling thread
+// becomes unblocked it locks the mutex before it returns.
+int Rtc_CndTimedWait(Cnd *cond, Mtx *mtx, int milliseconds);
+#endif
 
 // }  // namespace rtc
 

@@ -12,14 +12,13 @@
 #define RTC_BASE_TIMEUTILS_H_
 
 #include <stdint.h>
-// #include <time.h>
 
 // #include <ctime>
 // #include <string>
 
 // #include "rtc_base/checks.h"
 
-namespace rtc {
+// namespace rtc {
 
 static const int64_t kNumMillisecsPerSec = INT64_C(1000);
 static const int64_t kNumMicrosecsPerSec = INT64_C(1000000);
@@ -126,6 +125,23 @@ class IntervalRange {
   int max_;
 }; */
 
-}  // namespace rtc
+// timespec calc
+#if defined(WEBRTC_POSIX)
+#include <time.h>
+
+// Returns the current timespec
+void Timespec(struct timespec *ts);
+
+// Convert milliseconds to timespec
+void TimeToTimespec(struct timespec *ts, int milliseconds);
+
+// Normalize timespec
+void TimespecNormalize(struct timespec *ts);
+
+// Returns a future timestamp, |elapsed| milliseconds from now.
+void TimespecAfter(struct timespec *ts, struct timespec *elapsed);
+#endif
+
+// }  // namespace rtc
 
 #endif  // RTC_BASE_TIMEUTILS_H_

@@ -11,8 +11,11 @@ srcs    := $(wildcard rtc_base/*.cc)
 objs    := $(patsubst %.cc,%.o,$(filter %.cc, $(srcs)))
 deps    := $(patsubst %.o,%.d,$(objs))
 libs    := -lpthread
-cflags  := -I. -DNDEBUG -DWEBRTC_POSIX # -DWEBRTC_WIN
+cflags  = -I. -DNDEBUG -DWEBRTC_POSIX # -DWEBRTC_WIN
 ldflags := 
+# for reproducible build
+objs    := $(sort $(objs))
+# cflags  += -Wno-builtin-macro-redefined -U__FILE__ -D__FILE__=\"$(notdir $<)\"
 
 targets := lib$(name).so lib$(name).a
 demos   := single.elf multi.elf override.elf workers.elf
@@ -40,4 +43,4 @@ lib$(name).a : $(objs)
 -include $(deps)
 
 %.elf : demo/%.o lib$(name).a
-	@$(cxx) -Wl,--gc-sections -Wl,--as-needed -Wl,--export-dynamic $(ldflags) $^ -o $@ $(libs)
+	@$(cxx) $(cflags) -Wl,--gc-sections -Wl,--as-needed -Wl,--export-dynamic $(ldflags) $^ -o $@ $(libs)

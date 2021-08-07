@@ -14,13 +14,12 @@
 #include <windows.h>
 #elif defined(WEBRTC_POSIX)
 #include <pthread.h>
-#include <sys/time.h>
-#include <time.h>
 #else
 #error "Must define either WEBRTC_WIN or WEBRTC_POSIX."
 #endif
 
 #include "rtc_base/checks.h"
+#include "rtc_base/timeutils.h"
 
 namespace rtc {
 
@@ -77,37 +76,6 @@ void Event::Reset() {
   pthread_mutex_unlock(&event_mutex_);
 }
 
-// TODO maybe can we use functions in timeutils.h
-namespace {
-
-timespec GetTimespec(const int milliseconds) {
-  timespec ts;
-
-  // Get the current time.
-#if 1 // USE_CLOCK_GETTIME
-  clock_gettime(CLOCK_MONOTONIC, &ts);
-#else
-  timeval tv;
-  gettimeofday(&tv, nullptr);
-  ts.tv_sec = tv.tv_sec;
-  ts.tv_nsec = tv.tv_usec * 1000;
-#endif
-
-  // Add the specified number of milliseconds to it.
-  ts.tv_sec += (milliseconds / 1000);
-  ts.tv_nsec += (milliseconds % 1000) * 1000000;
-
-  // Normalize.
-  if (ts.tv_nsec >= 1000000000) {
-    ts.tv_sec++;
-    ts.tv_nsec -= 1000000000;
-  }
-
-  return ts;
-}
-
-}  // namespace
-
 bool Event::Wait(int milliseconds) {
   int error = 0;
 
@@ -127,7 +95,10 @@ bool Event::Wait(int milliseconds) {
       ts.tv_sec++;
       ts.tv_nsec -= 1000000000;
     } */
-    ts = GetTimespec(milliseconds);
+    struct timespec ts_elapsed;
+    Timespec(&ts);
+    TimeToTimespec(&ts_elapsed, milliseconds);
+    TimespecAfter(&ts, &ts_elapsed);
   }
 
   pthread_mutex_lock(&event_mutex_);

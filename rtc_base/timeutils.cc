@@ -27,22 +27,13 @@
 #include "rtc_base/checks.h"
 #include "rtc_base/timeutils.h"
 
-namespace rtc {
+// namespace rtc {
 
 int64_t SystemTimeNanos() {
   int64_t ticks;
 #if defined(WEBRTC_POSIX)
   struct timespec ts;
-  // TODO(deadbeef): Do we need to handle the case when CLOCK_MONOTONIC is not
-  // supported?
-#if 1 // USE_CLOCK_GETTIME
-  clock_gettime(CLOCK_MONOTONIC, &ts);
-#else
-  timeval tv;
-  gettimeofday(&tv, nullptr);
-  ts.tv_sec = tv.tv_sec;
-  ts.tv_nsec = tv.tv_usec * 1000;
-#endif
+  Timespec(&ts);
   ticks = kNumNanosecsPerSec * static_cast<int64_t>(ts.tv_sec) +
           static_cast<int64_t>(ts.tv_nsec);
 #elif defined(WEBRTC_WIN)
@@ -186,4 +177,46 @@ int64_t TimeUTCMicros() {
 #endif
 } */
 
-} // namespace rtc
+#if defined(WEBRTC_POSIX)
+void Timespec(struct timespec *ts) {
+#if 1
+  // TODO(deadbeef): Do we need to handle the case when CLOCK_MONOTONIC is not
+  // supported?
+  clock_gettime(CLOCK_MONOTONIC, ts);
+#elif 0
+  struct _timeb tb;
+  _ftime_s(&tb);
+  ts->tv_sec = (time_t)tb.time;
+  ts->tv_nsec = 1000000L * (long)tb.millitm;
+#else
+  timeval tv;
+  gettimeofday(&tv, nullptr);
+  ts->tv_sec = tv.tv_sec;
+  ts->tv_nsec = tv.tv_usec * 1000;
+#endif
+}
+
+void TimeToTimespec(struct timespec *ts, int milliseconds) {
+  ts->tv_sec  = milliseconds / kNumMillisecsPerSec;
+  ts->tv_nsec = (milliseconds % kNumMillisecsPerSec) * kNumNanosecsPerMillisec;
+  TimespecNormalize(ts);
+}
+
+void TimespecNormalize(struct timespec *ts) {
+  if (ts->tv_nsec >= kNumNanosecsPerSec) {
+    ts->tv_sec  += ts->tv_nsec / kNumNanosecsPerSec;
+    ts->tv_nsec = ts->tv_nsec % kNumNanosecsPerSec;
+    /* ts->tv_sec++;
+    ts->tv_nsec -= kNumNanosecsPerSec; */
+  }
+}
+
+// Returns a future timestamp, |elapsed| milliseconds from now.
+void TimespecAfter(struct timespec *ts, struct timespec *elapsed) {
+  ts->tv_sec  += elapsed->tv_sec;
+  ts->tv_nsec += elapsed->tv_nsec;
+  TimespecNormalize(ts);
+}
+#endif
+
+// } // namespace rtc

@@ -144,7 +144,7 @@ void PlatformThread::Run() {
     // call the function before checking |stop_|.
 #if RTC_DCHECK_IS_ON
     auto id = sequence_nr % kMaxLoopCount;
-    loop_stamps[id] = rtc::TimeMillis();
+    loop_stamps[id] = TimeMillis();
     if (sequence_nr > kMaxLoopCount) {
       auto compare_id = (id + 1) % kMaxLoopCount;
       auto diff = loop_stamps[id] - loop_stamps[compare_id];
