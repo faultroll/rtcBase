@@ -129,6 +129,11 @@ class IntervalRange {
 #if defined(WEBRTC_POSIX)
 #include <time.h>
 
+/* struct timespec {
+  time_t tv_sec;
+  long   tv_nsec;
+}; */ // defined(WEBRTC_WIN)
+
 // Returns the current timespec
 void Timespec(struct timespec *ts);
 

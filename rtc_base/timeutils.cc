@@ -183,7 +183,7 @@ void Timespec(struct timespec *ts) {
   // TODO(deadbeef): Do we need to handle the case when CLOCK_MONOTONIC is not
   // supported?
   clock_gettime(CLOCK_MONOTONIC, ts);
-#elif 0
+#elif 0 // defined(WEBRTC_WIN)
   struct _timeb tb;
   _ftime_s(&tb);
   ts->tv_sec = (time_t)tb.time;

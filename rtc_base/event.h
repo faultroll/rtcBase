@@ -12,13 +12,7 @@
 #define RTC_BASE_EVENT_H_
 
 #include "rtc_base/constructormagic.h"
-#if defined(WEBRTC_WIN)
-#include <windows.h>
-#elif defined(WEBRTC_POSIX)
-#include <pthread.h>
-#else
-#error "Must define either WEBRTC_WIN or WEBRTC_POSIX."
-#endif
+#include "rtc_base/platform_thread_types.h"
 
 namespace rtc {
 
@@ -37,14 +31,7 @@ class Event {
   bool Wait(int milliseconds);
 
  private:
-#if defined(WEBRTC_WIN)
-  HANDLE event_handle_;
-#elif defined(WEBRTC_POSIX)
-  pthread_mutex_t event_mutex_;
-  pthread_cond_t event_cond_;
-  const bool is_manual_reset_;
-  bool event_status_;
-#endif
+  Evnt event_handle_;
 
   RTC_DISALLOW_IMPLICIT_CONSTRUCTORS(Event);
 };
