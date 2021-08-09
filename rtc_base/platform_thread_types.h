@@ -202,33 +202,7 @@ void Rtc_CndDestroy(Cnd *cond);
 // Rtc_Cndbroadcast, or until after the specified time. When the calling thread
 // becomes unblocked it locks the mutex before it returns.
 int Rtc_CndTimedWait(Cnd *cond, Mtx *mtx, int milliseconds);
-#else // 0
-
-// Event variable
-#if defined(WEBRTC_WIN)
-typedef HANDLE Evnt;
-// #elif defined(WEBRTC_POSIX)
-#else // c11 <threads.h>
-typedef struct Evnt_ {
-    Mtx event_mutex_;
-    pthread_cond_t event_cond_;
-    /* const */ bool is_manual_reset_;
-    bool event_status_;
-} Evnt;
-#define INFINITE (-1)
 #endif
-
-int Rtc_EvntInit(Evnt *evnt, bool manual_reset, bool initially_signaled);
-
-void Rtc_EvntDestroy(Evnt *evnt);
-
-void Rtc_EvntSet(Evnt *evnt);
-
-void Rtc_EvntReset(Evnt *evnt);
-
-bool Rtc_EvntWait(Evnt *evnt, int milliseconds);
-
-#endif // 0
 
 // }  // namespace rtc
 
