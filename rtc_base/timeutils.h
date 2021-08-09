@@ -12,11 +12,7 @@
 #define RTC_BASE_TIMEUTILS_H_
 
 #include <stdint.h>
-
-// #include <ctime>
-// #include <string>
-
-// #include "rtc_base/checks.h"
+#include <time.h>
 
 // namespace rtc {
 
@@ -126,13 +122,12 @@ class IntervalRange {
 }; */
 
 // timespec calc
-#if defined(WEBRTC_POSIX)
-#include <time.h>
-
-/* struct timespec {
+#if defined(WEBRTC_WIN)
+struct timespec {
   time_t tv_sec;
   long   tv_nsec;
-}; */ // defined(WEBRTC_WIN)
+};
+#endif
 
 // Returns the current timespec
 void Timespec(struct timespec *ts);
@@ -145,7 +140,6 @@ void TimespecNormalize(struct timespec *ts);
 
 // Returns a future timestamp, |elapsed| milliseconds from now.
 void TimespecAfter(struct timespec *ts, struct timespec *elapsed);
-#endif
 
 // }  // namespace rtc
 

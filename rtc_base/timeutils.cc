@@ -8,35 +8,30 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
-#include <stdint.h>
-#include <time.h>
+#include "rtc_base/timeutils.h"
 
 #if defined(WEBRTC_POSIX)
 #include <sys/time.h>
-#endif
-
-#if defined(WEBRTC_WIN)
+#elif defined(WEBRTC_WIN)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
-#endif
+#endif // WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <mmsystem.h>
 #include <sys/timeb.h>
-#endif
+#endif // defined(WEBRTC_POSIX)
 
-#include "rtc_base/checks.h"
-#include "rtc_base/timeutils.h"
+// #include "rtc_base/checks.h"
 
 // namespace rtc {
 
 int64_t SystemTimeNanos() {
   int64_t ticks;
-#if defined(WEBRTC_POSIX)
   struct timespec ts;
   Timespec(&ts);
   ticks = kNumNanosecsPerSec * static_cast<int64_t>(ts.tv_sec) +
           static_cast<int64_t>(ts.tv_nsec);
-#elif defined(WEBRTC_WIN)
+/* #if defined(WEBRTC_WIN)
   static volatile LONG last_timegettime = 0;
   static volatile int64_t num_wrap_timegettime = 0;
   volatile LONG* last_timegettime_ptr = &last_timegettime;
@@ -55,9 +50,7 @@ int64_t SystemTimeNanos() {
   // TODO(deadbeef): Calculate with nanosecond precision. Otherwise, we're
   // just wasting a multiply and divide when doing Time() on Windows.
   ticks = ticks * kNumNanosecsPerMillisec;
-#else
-# error Unsupported platform.
-#endif
+#endif */
   return ticks;
 }
 
@@ -82,7 +75,7 @@ int64_t TimeMicros() {
 }
 
 int64_t TimeAfter(int64_t elapsed) {
-  RTC_DCHECK_GE(elapsed, 0);
+  // RTC_DCHECK_GE(elapsed, 0);
   return TimeMillis() + elapsed;
 }
 
@@ -160,7 +153,7 @@ int64_t TmToSeconds(const std::tm& tm) {
             (year - 1970) * 365 + day) * 24 + hour) * 60 + min) * 60 + sec;
 }
 
-int64_t TimeUTCMicros() {
+int64_t TimeUTCMicros() { // CLOCK_REALTIME
 #if defined(WEBRTC_POSIX)
   struct timeval time;
   gettimeofday(&time, nullptr);
@@ -177,22 +170,25 @@ int64_t TimeUTCMicros() {
 #endif
 } */
 
+void Timespec(struct timespec *ts) { // CLOCK_MONOTONIC
 #if defined(WEBRTC_POSIX)
-void Timespec(struct timespec *ts) {
-#if 1
   // TODO(deadbeef): Do we need to handle the case when CLOCK_MONOTONIC is not
   // supported?
   clock_gettime(CLOCK_MONOTONIC, ts);
-#elif 0 // defined(WEBRTC_WIN)
-  struct _timeb tb;
-  _ftime_s(&tb);
-  ts->tv_sec = (time_t)tb.time;
-  ts->tv_nsec = 1000000L * (long)tb.millitm;
-#else
-  timeval tv;
-  gettimeofday(&tv, nullptr);
-  ts->tv_sec = tv.tv_sec;
-  ts->tv_nsec = tv.tv_usec * 1000;
+
+  /* struct timeval time;
+  gettimeofday(&time, nullptr);
+  // Convert from second (1.0) and microsecond (1e-6).
+  ts->tv_sec = (time_t)time.tv_sec;
+  ts->tv_nsec = (long)time.tv_usec * kNumNanosecsPerMicrosec; */
+
+#elif defined(WEBRTC_WIN)
+  struct _timeb time;
+  _ftime(&time);
+  // Convert from second (1.0) and milliseconds (1e-3).
+  ts->tv_sec  = (time_t)time.time;
+  ts->tv_nsec = (long)time.millitm * kNumNanosecsPerMillisec;
+
 #endif
 }
 
@@ -211,12 +207,10 @@ void TimespecNormalize(struct timespec *ts) {
   }
 }
 
-// Returns a future timestamp, |elapsed| milliseconds from now.
 void TimespecAfter(struct timespec *ts, struct timespec *elapsed) {
   ts->tv_sec  += elapsed->tv_sec;
   ts->tv_nsec += elapsed->tv_nsec;
   TimespecNormalize(ts);
 }
-#endif
 
 // } // namespace rtc

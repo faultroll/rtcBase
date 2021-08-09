@@ -5,5 +5,6 @@ this project extract thread utils from webrtc m66, with my own understands
 - trying to use platform_thread in thread; you can override run func in thread, so no need to use platform_thread, use thread instead
 
 TODOs
-- timeutils support struct tm (c version), struct timespec support WEBRTC_WIN
+- timeutils support struct tm (c version)
 - add virtual_socketserver/signalthread to demo
+- windows version *NOT* tested (or even compiled)
