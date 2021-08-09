@@ -14,14 +14,11 @@
 #ifndef TYPEDEFS_H_
 #define TYPEDEFS_H_
 
-// TODO Put macros without RTC_ here, all macros be RTC_XXX except here
-// eg. DCHECK_ALWAYS_ON DCRIT_ALWAYS_ON DLOG_ALWAYS_ON NDEBUG ...
-
 #ifndef RTC_NORETURN
 // Annotate a function that will not return control flow to the caller.
-#if defined(_MSC_VER)
+#if defined(WEBRTC_WIN)
 #define RTC_NORETURN __declspec(noreturn)
-#elif defined(__GNUC__)
+#elif defined(WEBRTC_POSIX)
 #define RTC_NORETURN __attribute__ ((__noreturn__))
 #else
 #define RTC_NORETURN
@@ -29,9 +26,9 @@
 #endif
 
 #ifndef RTC_CHECKRETURN
-#if defined(_MSC_VER)
+#if defined(WEBRTC_WIN)
 #define RTC_CHECKRETURN _Check_return_
-#elif defined(__GNUC__)
+#elif defined(WEBRTC_POSIX)
 #define RTC_CHECKRETURN __attribute__ ((__warn_unused_result__))
 #else
 #define RTC_CHECKRETURN

@@ -53,7 +53,7 @@ ThreadManager* ThreadManager::Instance() {
 
 ThreadManager::~ThreadManager() {
   // By above RTC_DEFINE_STATIC_LOCAL.
-  Rtc_TssDelete(key_);
+  rtc_TssDelete(key_);
   RTC_NOTREACHED() /* << "ThreadManager should never be destructed." */;
 }
 
@@ -116,14 +116,14 @@ Thread* Thread::Current() {
 }
 
 ThreadManager::ThreadManager()
-    : key_(Rtc_TssCreate()), main_thread_ref_(Rtc_ThrdCurrent()) {}
+    : key_(rtc_TssCreate()), main_thread_ref_(rtc_ThrdCurrent()) {}
 
 Thread* ThreadManager::CurrentThread() {
-  return static_cast<Thread*>(Rtc_TssGet(key_));
+  return static_cast<Thread*>(rtc_TssGet(key_));
 }
 
 void ThreadManager::SetCurrentThreadInternal(Thread* thread) {
-  Rtc_TssSet(key_, thread);
+  rtc_TssSet(key_, thread);
 }
 
 void ThreadManager::SetCurrentThread(Thread* thread) {
@@ -168,7 +168,7 @@ void ThreadManager::UnwrapCurrentThread() {
 }
 
 bool ThreadManager::IsMainThread() {
-  return Rtc_ThrdEqual(Rtc_ThrdCurrent(), main_thread_ref_);
+  return rtc_ThrdEqual(rtc_ThrdCurrent(), main_thread_ref_);
 }
 
 Thread::Thread(SocketServer* ss) : Thread(ss, /*do_init=*/true) {}
@@ -208,7 +208,7 @@ void Thread::DoInit() {
 
   fInitialized_ = true;
   thread_ = new PlatformThread(PreRun, this);
-  thread_ref_ = kThreadRefNone;
+  thread_ref_ = kNullThrd;
   ThreadManager::Add(this);
 }
 
@@ -550,7 +550,7 @@ bool Thread::SleepMs(int milliseconds) {
     Post(RTC_FROM_HERE, &queued_task_handler_, QueuedTaskHandler::kSleepMs, smsg);
     return true;
   }
-  return Rtc_ThrdSleep(milliseconds);
+  return rtc_ThrdSleep(milliseconds);
 #endif // 0
 }
 
@@ -642,7 +642,7 @@ void Thread::UnwrapCurrent() {
 #elif defined(WEBRTC_POSIX)
   thread_ = 0;
 #endif */
-  thread_ref_ = kThreadRefNone;
+  thread_ref_ = kNullThrd;
 }
 
 void Thread::SafeWrapCurrent() {
@@ -670,7 +670,7 @@ void Thread::Join() {
   thread_ = 0;
 #endif */
   thread_->Stop();
-  thread_ref_ = kThreadRefNone;
+  thread_ref_ = kNullThrd;
 }
 
 // static
@@ -682,7 +682,7 @@ void* Thread::PreRun(void* pv) {
 void Thread::PreRun(void* pv) {
   Thread* thread = static_cast<Thread*>(pv);
   ThreadManager::Instance()->SetCurrentThread(thread);
-  /* Rtc_ThrdSetName(thread->name_.c_str()); */
+  /* rtc_ThrdSetName(thread->name_.c_str()); */ // set in platform_thread
   thread->Run();
 
   ThreadManager::Instance()->SetCurrentThread(nullptr);
@@ -698,7 +698,7 @@ void Thread::Run() {
 }
 
 bool Thread::IsOwned() {
-  RTC_DCHECK(IsRunning());
+  // RTC_DCHECK(IsRunning()); // abort() when |Unwrap| main_thread_
   return owned_;
 }
 
@@ -995,7 +995,7 @@ bool Thread::IsRunning() {
 #elif defined(WEBRTC_POSIX)
   return thread_ != 0;
 #endif */
-  return ((thread_ref_ != kThreadRefNone) && (thread_ != nullptr)
+  return ((thread_ref_ != kNullThrd) && (thread_ != nullptr)
     && thread_->IsRunning());
 }
 

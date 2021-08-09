@@ -416,7 +416,6 @@ class RTC_LOCKABLE Thread {
   HANDLE thread_ = nullptr;
   DWORD thread_id_ = 0;
 #endif */
-  static const Thrd kThreadRefNone = static_cast<Thrd>(0);
   PlatformThread* thread_;
   Thrd thread_ref_;
 

@@ -18,7 +18,7 @@
 namespace rtc {
 
 CriticalSection::CriticalSection() {
-  Rtc_MtxInit(&mutex_);
+  rtc_MtxInit(&mutex_);
 
 #if RTC_DCHECK_IS_ON
   thread_ = 0;
@@ -27,16 +27,16 @@ CriticalSection::CriticalSection() {
 }
 
 CriticalSection::~CriticalSection() {
-  Rtc_MtxDestroy(&mutex_);
+  rtc_MtxDestroy(&mutex_);
 }
 
 void CriticalSection::Enter() const RTC_EXCLUSIVE_LOCK_FUNCTION() {
-  Rtc_MtxLock(&mutex_);
+  rtc_MtxLock(&mutex_);
 
 #if RTC_DCHECK_IS_ON
   if (!recursion_count_) {
     RTC_DCHECK(!thread_);
-    thread_ = Rtc_ThrdCurrent();
+    thread_ = rtc_ThrdCurrent();
   } else {
     RTC_DCHECK(CurrentThreadIsOwner());
   }
@@ -45,13 +45,13 @@ void CriticalSection::Enter() const RTC_EXCLUSIVE_LOCK_FUNCTION() {
 }
 
 bool CriticalSection::TryEnter() const RTC_EXCLUSIVE_TRYLOCK_FUNCTION(true) {
-  if (Rtc_MtxTryLock(&mutex_) != 0)
+  if (rtc_MtxTryLock(&mutex_) != kThrdSuccess)
     return false;
 
 #if RTC_DCHECK_IS_ON
   if (!recursion_count_) {
     RTC_DCHECK(!thread_);
-    thread_ = Rtc_ThrdCurrent();
+    thread_ = rtc_ThrdCurrent();
   } else {
     RTC_DCHECK(CurrentThreadIsOwner());
   }
@@ -71,13 +71,13 @@ void CriticalSection::Leave() const RTC_UNLOCK_FUNCTION() {
     thread_ = 0;
 #endif  // RTC_DCHECK_IS_ON
 
-  Rtc_MtxUnlock(&mutex_);
+  rtc_MtxUnlock(&mutex_);
 }
 
 bool CriticalSection::CurrentThreadIsOwner() const {
 
 #if RTC_DCHECK_IS_ON
-  return Rtc_ThrdEqual(thread_, Rtc_ThrdCurrent());
+  return rtc_ThrdEqual(thread_, rtc_ThrdCurrent());
 #else
   return true;
 #endif  // RTC_DCHECK_IS_ON
@@ -110,7 +110,7 @@ bool TryCritScope::locked() const {
 
 void GlobalLockPod::Lock() {
   while (AtomicOps::CompareAndSwap(&lock_acquired, 0, 1)) {
-    Rtc_ThrdYield();
+    rtc_ThrdYield();
   }
 }
 

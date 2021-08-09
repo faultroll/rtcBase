@@ -29,16 +29,14 @@ PlatformThread::PlatformThread(ThreadRunFunction func,
                                ThrdPrio priority /*= kNormalPrio*/)
     : run_function_(func), priority_(priority), obj_(obj) {
   RTC_DCHECK(func);
-  // RTC_DCHECK(!name_.empty());
+  // RTC_DCHECK(!name_.empty()); // cannot pass check, why?
   // TODO(tommi): Consider lowering the limit to 15 (limit on Linux).
   RTC_DCHECK(name_.length() < 64);
   SetName(name, this);  // default name
 }
 
 PlatformThread::~PlatformThread() {
-#if defined(WEBRTC_WIN)
   RTC_DCHECK(!thread_);
-#endif
 }
 
 bool PlatformThread::SetName(const std::string& name, const void* obj) {
@@ -67,11 +65,9 @@ void PlatformThread::Start() {
   stop_ = false;
 #endif
 
-  RTC_CHECK_EQ(0, Rtc_ThrdCreate(&thread_, &StartThread, this));
+  RTC_CHECK_EQ(kThrdSuccess, rtc_ThrdCreate(&thread_, &StartThread, this));
 
-#if defined(WEBRTC_WIN)
   RTC_CHECK(thread_) /* << "CreateThread failed" */;
-#endif
 }
 
 bool PlatformThread::IsRunning() const {
@@ -79,7 +75,7 @@ bool PlatformThread::IsRunning() const {
 }
 
 Thrd PlatformThread::GetThreadRef() const {
-  return Rtc_ThrdCurrent();
+  return rtc_ThrdCurrent();
 }
 
 void PlatformThread::Stop() {
@@ -97,7 +93,7 @@ void PlatformThread::Stop() {
 #endif
   }
 
-  RTC_CHECK_EQ(0, Rtc_ThrdJoin(thread_));
+  RTC_CHECK_EQ(kThrdSuccess, rtc_ThrdJoin(thread_));
 
 #if defined(WEBRTC_WIN)
   // Nothing
@@ -118,10 +114,10 @@ void PlatformThread::Stop() {
 // All implementations will need to be aware of how the thread should be stopped
 // and encouraging a busy polling loop, can be costly in terms of power and cpu.
 void PlatformThread::Run() {
-  Rtc_ThrdSetName(name_.c_str());
+  rtc_ThrdSetName(name_.c_str());
 
   if (run_function_) {
-    Rtc_ThrdSetPrio(thread_, priority_);
+    rtc_ThrdSetPrio(thread_, priority_);
     run_function_(obj_);
     return;
   }
@@ -160,7 +156,7 @@ void PlatformThread::Run() {
 #endif
 
     // Alertable sleep to permit RaiseFlag to run and update |stop_|.
-    Rtc_ThrdYield();
+    rtc_ThrdYield();
 
 #if defined(WEBRTC_WIN)
   } while (!stop_);
@@ -181,7 +177,7 @@ bool PlatformThread::SetPriority(ThrdPrio priority) {
   }
 #endif
 
-  return Rtc_ThrdSetPrio(thread_, priority);
+  return rtc_ThrdSetPrio(thread_, priority);
 }
 
 #if defined(WEBRTC_WIN)
