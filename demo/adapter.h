@@ -29,7 +29,7 @@ public:
         int haha_;
     };
 
-    void *DataDupFunction(int oper, void *data)
+    void DataDupFunction(int oper, PeonData *data)
     {
         const struct {
             enum Operations oper_;
@@ -49,38 +49,45 @@ public:
         else
             size = 1024;
         void *data_tmp = malloc(size);
-        memmove(data_tmp, data, size);
+        memmove(data_tmp, data->data_process_, size);
         std::cout << "DataDupFunction Adapter" << type_ << ": "
                   << oper << ", size: " << size << ", data: " << data_tmp << std::endl;
-        return data_tmp;
+        data->data_process_ = data_tmp;
+        data->data_report_ = nullptr;
     }
 
-    void DataFreeFunction(int oper, void *data)
+    void DataFreeFunction(int oper, PeonData *data)
     {
         std::cout << "DataFreeFunction Adapter" << type_ << ": "
-                  << oper << ", data: " << data << std::endl;
-        free(data);
+                  << oper << ", data: " << data->data_process_ << std::endl;
+        free(data->data_process_);
     }
 
-    int ProcessFunction(int oper, void *data)
+    int ProcessFunction(int oper, PeonData *data)
     {
         std::cout << "ProcessFunction Adapter" << type_ << ": "
                   << oper << std::endl;
 
         switch (oper) {
             case kHengHeng: {
-                HengHengData *data_src = (HengHengData *)data;
+                HengHengData *data_src = (HengHengData *)data->data_process_;
+                PeonData data_pack;
                 ServiceAlpha::HengData *data_dst = new ServiceAlpha::HengData;
                 data_dst->heng_ = data_src->hengheng_;
-                service_->SyncCall(ServiceAlpha::kHeng, data_dst);
+                data_pack.data_process_ = data_dst;
+                data_pack.data_report_ = nullptr;
+                service_->SyncCall(ServiceAlpha::kHeng, data_pack);
                 delete data_dst;
                 break;
             }
             case kHaHa: {
-                HaHaData *data_src = (HaHaData *)data;
+                HaHaData *data_src = (HaHaData *)data->data_process_;
+                PeonData data_pack;
                 ServiceAlpha::HaData *data_dst = new ServiceAlpha::HaData;
                 data_dst->ha_ = data_src->haha_;
-                service_->SyncCall(ServiceAlpha::kHa, data);
+                data_pack.data_process_ = data_src;
+                data_pack.data_report_ = nullptr;
+                service_->SyncCall(ServiceAlpha::kHa, data_pack);
                 delete data_dst;
                 break;
             }
@@ -92,19 +99,30 @@ public:
         return 0xdeadbeaf;
     }
 
-    void ReportFunction(int oper, void *data, int result)
+    /* void ReportFunction(int oper, PeonData *data, int result)
     {
         (void)oper;
         (void)data;
         // bug: data is changed when using |std::hex|, for it changes all numerics to hex after using it
         // std::cout << "ReportFunction Adapter: " << std::hex << result << std::endl;
         printf("ReportFunction Adapter%d: %#x\n", type_, result);
-    }
+    } */
 
     // error: marked ‘override’, but does not override
     int SyncCall(int oper, void *data) /* override */
     {
-        return ProcessFunction(oper, data);
+        PeonData data_pack;
+        data_pack.data_process_ = data;
+        data_pack.data_report_ = nullptr;
+        return Peon::SyncCall(oper, data_pack);
+    }
+
+    void AsyncMsg(int oper, void *data)
+    {
+        PeonData data_pack;
+        data_pack.data_process_ = data;
+        data_pack.data_report_ = nullptr;
+        Peon::AsyncMsg(oper, data_pack);
     }
 
 private:
