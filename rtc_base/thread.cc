@@ -698,7 +698,7 @@ void Thread::Run() {
 }
 
 bool Thread::IsOwned() {
-  // RTC_DCHECK(IsRunning()); // abort() when |Unwrap| main_thread_
+  RTC_DCHECK(IsRunning());
   return owned_;
 }
 
@@ -995,8 +995,15 @@ bool Thread::IsRunning() {
 #elif defined(WEBRTC_POSIX)
   return thread_ != 0;
 #endif */
-  return ((thread_ref_ != kNullThrd) && (thread_ != nullptr)
-    && thread_->IsRunning());
+  /* if (owned_) {
+    return ((thread_ref_ != kNullThrd) && (thread_ != nullptr)
+      && thread_->IsRunning());
+  }
+  else */ {
+    // |thread_| will not running if not call |Thread::Start()|
+    // only call |ThreadManager::WrapCurrentThread()| also works
+    return (thread_ref_ != kNullThrd);
+  }
 }
 
 #if 0 /* defined(USING_SENDLIST) */

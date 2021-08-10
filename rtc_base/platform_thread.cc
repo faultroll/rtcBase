@@ -29,9 +29,6 @@ PlatformThread::PlatformThread(ThreadRunFunction func,
                                ThrdPrio priority /*= kNormalPrio*/)
     : run_function_(func), priority_(priority), obj_(obj) {
   RTC_DCHECK(func);
-  // RTC_DCHECK(!name_.empty()); // cannot pass check, why?
-  // TODO(tommi): Consider lowering the limit to 15 (limit on Linux).
-  RTC_DCHECK(name_.length() < 64);
   SetName(name, this);  // default name
 }
 
@@ -41,6 +38,9 @@ PlatformThread::~PlatformThread() {
 
 bool PlatformThread::SetName(const std::string& name, const void* obj) {
   RTC_DCHECK(!IsRunning());
+  RTC_DCHECK(!name.empty());
+  // TODO(tommi): Consider lowering the limit to 15 (limit on Linux).
+  RTC_DCHECK(name.length() < 64);
 
   name_ = name;
   if (obj) {
