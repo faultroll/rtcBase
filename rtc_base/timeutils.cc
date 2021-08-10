@@ -19,7 +19,7 @@
 #include <windows.h>
 #include <mmsystem.h>
 #include <sys/timeb.h>
-#endif // defined(WEBRTC_POSIX)
+#endif
 
 // #include "rtc_base/checks.h"
 
@@ -27,11 +27,12 @@
 
 int64_t SystemTimeNanos() {
   int64_t ticks;
+#if defined(WEBRTC_POSIX)
   struct timespec ts;
   Timespec(&ts);
-  ticks = kNumNanosecsPerSec * static_cast<int64_t>(ts.tv_sec) +
-          static_cast<int64_t>(ts.tv_nsec);
-/* #if defined(WEBRTC_WIN)
+  ticks = (static_cast<int64_t>(ts.tv_sec) * kNumNanosecsPerSec +
+           static_cast<int64_t>(ts.tv_nsec));
+#elif defined(WEBRTC_WIN)
   static volatile LONG last_timegettime = 0;
   static volatile int64_t num_wrap_timegettime = 0;
   volatile LONG* last_timegettime_ptr = &last_timegettime;
@@ -50,12 +51,34 @@ int64_t SystemTimeNanos() {
   // TODO(deadbeef): Calculate with nanosecond precision. Otherwise, we're
   // just wasting a multiply and divide when doing Time() on Windows.
   ticks = ticks * kNumNanosecsPerMillisec;
-#endif */
+#endif
   return ticks;
 }
 
 int64_t SystemTimeMillis() {
   return static_cast<int64_t>(SystemTimeNanos() / kNumNanosecsPerMillisec);
+}
+
+int64_t UTCTimeMillis() {
+#if defined(WEBRTC_POSIX)
+#if 0
+  struct timeval time;
+  gettimeofday(&time, nullptr);
+  // Convert from second (1.0) and microsecond (1e-6).
+  return (static_cast<int64_t>(time.tv_sec) * kNumMillisecsPerSec +
+          static_cast<int64_t>(time.tv_usec) / kNumMicrosecsPerMillisec);
+#else // 0
+  struct timespec ts;
+  clock_gettime(CLOCK_REALTIME, &ts);
+  return TimespecToTime(&ts);
+#endif // 0
+#elif defined(WEBRTC_WIN)
+  struct _timeb time;
+  _ftime(&time);
+  // Convert from second (1.0) and milliseconds (1e-3).
+  return (static_cast<int64_t>(time.time) * kNumMillisecsPerSec +
+          static_cast<int64_t>(time.millitm));
+#endif
 }
 
 int64_t TimeNanos() {
@@ -107,18 +130,18 @@ int64_t TimestampWrapAroundHandler::Unwrap(uint32_t ts) {
 
   last_ts_ = ts;
   return ts + (num_wrap_ << 32);
-}
+} */
 
-int64_t TmToSeconds(const std::tm& tm) {
+int64_t TmToTime(const struct tm *tm) {
   static short int mdays[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
   static short int cumul_mdays[12] = {0,   31,  59,  90,  120, 151,
                                       181, 212, 243, 273, 304, 334};
-  int year = tm.tm_year + 1900;
-  int month = tm.tm_mon;
-  int day = tm.tm_mday - 1;  // Make 0-based like the rest.
-  int hour = tm.tm_hour;
-  int min = tm.tm_min;
-  int sec = tm.tm_sec;
+  int year = tm->tm_year + 1900;
+  int month = tm->tm_mon;
+  int day = tm->tm_mday - 1;  // Make 0-based like the rest.
+  int hour = tm->tm_hour;
+  int min = tm->tm_min;
+  int sec = tm->tm_sec;
 
   bool expiry_in_leap_year = (year % 4 == 0 &&
                               (year % 100 != 0 || year % 400 == 0));
@@ -147,55 +170,21 @@ int64_t TmToSeconds(const std::tm& tm) {
   if (expiry_in_leap_year && month <= 2 - 1) // |month| is zero based.
     day -= 1;
 
-  // Combine all variables into seconds from 1970-01-01 00:00 (except |month|
+  // Combine all variables into second from 1970-01-01 00:00 (except |month|
   // which was accumulated into |day| above).
-  return (((static_cast<int64_t>
+  int64_t second = (((static_cast<int64_t>
             (year - 1970) * 365 + day) * 24 + hour) * 60 + min) * 60 + sec;
+  return second * kNumMillisecsPerSec;
 }
-
-int64_t TimeUTCMicros() { // CLOCK_REALTIME
-#if defined(WEBRTC_POSIX)
-  struct timeval time;
-  gettimeofday(&time, nullptr);
-  // Convert from second (1.0) and microsecond (1e-6).
-  return (static_cast<int64_t>(time.tv_sec) * rtc::kNumMicrosecsPerSec +
-          time.tv_usec);
-
-#elif defined(WEBRTC_WIN)
-  struct _timeb time;
-  _ftime(&time);
-  // Convert from second (1.0) and milliseconds (1e-3).
-  return (static_cast<int64_t>(time.time) * rtc::kNumMicrosecsPerSec +
-          static_cast<int64_t>(time.millitm) * rtc::kNumMicrosecsPerMillisec);
-#endif
-} */
 
 void Timespec(struct timespec *ts) { // CLOCK_MONOTONIC
 #if defined(WEBRTC_POSIX)
   // TODO(deadbeef): Do we need to handle the case when CLOCK_MONOTONIC is not
   // supported?
   clock_gettime(CLOCK_MONOTONIC, ts);
-
-  /* struct timeval time;
-  gettimeofday(&time, nullptr);
-  // Convert from second (1.0) and microsecond (1e-6).
-  ts->tv_sec = (time_t)time.tv_sec;
-  ts->tv_nsec = (long)time.tv_usec * kNumNanosecsPerMicrosec; */
-
 #elif defined(WEBRTC_WIN)
-  struct _timeb time;
-  _ftime(&time);
-  // Convert from second (1.0) and milliseconds (1e-3).
-  ts->tv_sec  = (time_t)time.time;
-  ts->tv_nsec = (long)time.millitm * kNumNanosecsPerMillisec;
-
+  TimeToTimespec(ts, SystemTimeMillis());
 #endif
-}
-
-void TimeToTimespec(struct timespec *ts, int milliseconds) {
-  ts->tv_sec  = milliseconds / kNumMillisecsPerSec;
-  ts->tv_nsec = (milliseconds % kNumMillisecsPerSec) * kNumNanosecsPerMillisec;
-  TimespecNormalize(ts);
 }
 
 void TimespecNormalize(struct timespec *ts) {
@@ -211,6 +200,17 @@ void TimespecAfter(struct timespec *ts, struct timespec *elapsed) {
   ts->tv_sec  += elapsed->tv_sec;
   ts->tv_nsec += elapsed->tv_nsec;
   TimespecNormalize(ts);
+}
+
+void TimeToTimespec(struct timespec *ts, int64_t milliseconds) {
+  ts->tv_sec  = milliseconds / kNumMillisecsPerSec;
+  ts->tv_nsec = (milliseconds % kNumMillisecsPerSec) * kNumNanosecsPerMillisec;
+  TimespecNormalize(ts);
+}
+
+int64_t TimespecToTime(struct timespec *ts) {
+  return (static_cast<int64_t>(ts->tv_sec) * kNumMillisecsPerSec +
+          static_cast<int64_t>(ts->tv_nsec) / kNumNanosecsPerMillisec);
 }
 
 // } // namespace rtc

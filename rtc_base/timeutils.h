@@ -27,10 +27,25 @@ static const int64_t kNumNanosecsPerMillisec =
 static const int64_t kNumNanosecsPerMicrosec =
     kNumNanosecsPerSec / kNumMicrosecsPerSec;
 
-/* // Returns the actual system time, even if a clock is set for testing.
+// System time is |CLOCK_MONOTONIC|
+// Returns the actual system time, even if a clock is set for testing.
 // Useful for timeouts while using a test clock, or for logging.
-int64_t SystemTimeNanos();
-int64_t SystemTimeMillis(); */
+/* int64_t SystemTimeNanos(); */
+int64_t SystemTimeMillis();
+
+// UTC time is |CLOCK_REALTIME|
+// Return the number of microseconds since January 1, 1970, UTC.
+// Useful mainly when producing logs to be correlated with other
+// devices, and when the devices in question all have properly
+// synchronized clocks.
+//
+// Note that this function obeys the system's idea about what the time
+// is. It is not guaranteed to be monotonic; it will jump in case the
+// system time is changed, e.g., by some other process calling
+// settimeofday. Always use TimeMillis(), not this function, for
+// measuring time intervals and timeouts.
+/* int64_t UTCTimeNanos(); */
+int64_t UTCTimeMillis();
 
 /* // Returns the current time in milliseconds in 32 bits.
 uint32_t Time32(); */
@@ -78,23 +93,6 @@ inline int64_t TimeUntil(int64_t later) {
   int64_t num_wrap_;
 };
 
-// Convert from std::tm, which is relative to 1900-01-01 00:00 to number of
-// seconds from 1970-01-01 00:00 ("epoch").  Don't return time_t since that
-// is still 32 bits on many systems.
-int64_t TmToSeconds(const std::tm& tm);
-
-// Return the number of microseconds since January 1, 1970, UTC.
-// Useful mainly when producing logs to be correlated with other
-// devices, and when the devices in question all have properly
-// synchronized clocks.
-//
-// Note that this function obeys the system's idea about what the time
-// is. It is not guaranteed to be monotonic; it will jump in case the
-// system time is changed, e.g., by some other process calling
-// settimeofday. Always use rtc::TimeMicros(), not this function, for
-// measuring time intervals and timeouts.
-int64_t TimeUTCMicros();
-
 // Interval of time from the range [min, max] inclusive.
 class IntervalRange {
  public:
@@ -121,6 +119,12 @@ class IntervalRange {
   int max_;
 }; */
 
+// tm calc
+// Convert from struct tm, which is relative to 1900-01-01 00:00 to number of
+// seconds from 1970-01-01 00:00 ("epoch").  Don't return time_t since that
+// is still 32 bits on many systems.
+int64_t TmToTime(const struct tm *tm);
+
 // timespec calc
 #if defined(WEBRTC_WIN)
 struct timespec {
@@ -132,14 +136,17 @@ struct timespec {
 // Returns the current timespec
 void Timespec(struct timespec *ts);
 
-// Convert milliseconds to timespec
-void TimeToTimespec(struct timespec *ts, int milliseconds);
-
 // Normalize timespec
 void TimespecNormalize(struct timespec *ts);
 
 // Returns a future timestamp, |elapsed| milliseconds from now.
 void TimespecAfter(struct timespec *ts, struct timespec *elapsed);
+
+// Convert milliseconds to timespec
+void TimeToTimespec(struct timespec *ts, int64_t milliseconds);
+
+// Convert timespec to milliseconds
+int64_t TimespecToTime(struct timespec *ts);
 
 // }  // namespace rtc
 
