@@ -18,7 +18,7 @@ objs    := $(sort $(objs))
 # cflags  += -Wno-builtin-macro-redefined -U__FILE__ -D__FILE__=\"$(notdir $<)\"
 
 targets := lib$(name).so lib$(name).a
-demos   := single.elf multi.elf override.elf workers.elf
+demos   := single.elf multi.elf override.elf projects.elf
 all : $(targets) $(demos)
 
 clean : 
