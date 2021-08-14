@@ -41,7 +41,7 @@ public:
         int hengha_;
     };
 
-    void DataDupFunction(int oper, PeonData *data)
+    void *DataDupFunction(int oper, void *data)
     {
         const struct {
             enum Operations oper_;
@@ -62,45 +62,41 @@ public:
         else
             size = 1024;
         void *data_tmp = malloc(size);
-        memmove(data_tmp, data->data_process_, size);
+        memmove(data_tmp, data, size);
         std::cout << "DataDupFunction Service" << type_ << ": "
                   << oper << ", size: " << size << ", data: " << data_tmp << std::endl;
-        data->data_process_ = data_tmp;
-        data->data_report_ = nullptr;
+        return data_tmp;
     }
 
-    void DataFreeFunction(int oper, PeonData *data)
+    void DataFreeFunction(int oper, void *data)
     {
         std::cout << "DataFreeFunction Service" << type_ << ": "
-                  << oper << ", data: " << data->data_process_ << std::endl;
-        free(data->data_process_);
+                  << oper << ", data: " << data << std::endl;
+        free(data);
     }
 
-    int ProcessFunction(int oper, PeonData *data)
+    int ProcessFunction(int oper, void *data)
     {
         std::cout << "ProcessFunction Service" << type_ << ": "
                   << oper << std::endl;
 
         switch (oper) {
             case kHeng: {
-                HengData *data_tmp = (HengData *)data->data_process_;
+                HengData *data_tmp = (HengData *)data;
                 std::cout << "Heng: " << data_tmp->heng_ << std::endl;
-                PeonData data_pack;
                 HengHaData count;
                 count.hengha_ = 0;
-                data_pack.data_process_ = &count;
-                data_pack.data_report_ = nullptr;
-                handler_ = EnterCycle(kHengHa, data_pack, 200);
+                handler_ = EnterCycle(kHengHa, &count, 200);
                 break;
             }
             case kHa: {
-                HaData *data_tmp = (HaData *)data->data_process_;
+                HaData *data_tmp = (HaData *)data;
                 std::cout << "Ha: " << data_tmp->ha_ << std::endl;
                 ExitCycle(handler_);
                 break;
             }
             case kHengHa: {
-                HengHaData *data_tmp = (HengHaData *)data->data_process_;
+                HengHaData *data_tmp = (HengHaData *)data;
                 data_tmp->hengha_++;
                 std::cout << "HengHa! " << data_tmp->hengha_ << std::endl;
                 break;
@@ -113,7 +109,7 @@ public:
         return 0xdeadbeaf;
     }
 
-    /* void ReportFunction(int oper, PeonData *data, int result)
+    /* void ReportFunction(int oper, void *data, int result)
     {
         (void)oper;
         (void)data;

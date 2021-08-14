@@ -29,7 +29,7 @@ public:
         int haha_;
     };
 
-    void DataDupFunction(int oper, PeonData *data)
+    void *DataDupFunction(int oper, void *data)
     {
         const struct {
             enum Operations oper_;
@@ -49,45 +49,38 @@ public:
         else
             size = 1024;
         void *data_tmp = malloc(size);
-        memmove(data_tmp, data->data_process_, size);
+        memmove(data_tmp, data, size);
         std::cout << "DataDupFunction Adapter" << type_ << ": "
                   << oper << ", size: " << size << ", data: " << data_tmp << std::endl;
-        data->data_process_ = data_tmp;
-        data->data_report_ = nullptr;
+        return data_tmp;
     }
 
-    void DataFreeFunction(int oper, PeonData *data)
+    void DataFreeFunction(int oper, void *data)
     {
         std::cout << "DataFreeFunction Adapter" << type_ << ": "
-                  << oper << ", data: " << data->data_process_ << std::endl;
-        free(data->data_process_);
+                  << oper << ", data: " << data << std::endl;
+        free(data);
     }
 
-    int ProcessFunction(int oper, PeonData *data)
+    int ProcessFunction(int oper, void *data)
     {
         std::cout << "ProcessFunction Adapter" << type_ << ": "
                   << oper << std::endl;
 
         switch (oper) {
             case kHengHeng: {
-                HengHengData *data_src = (HengHengData *)data->data_process_;
-                PeonData data_pack;
+                HengHengData *data_src = (HengHengData *)data;
                 ServiceAlpha::HengData *data_dst = new ServiceAlpha::HengData;
                 data_dst->heng_ = data_src->hengheng_;
-                data_pack.data_process_ = data_dst;
-                data_pack.data_report_ = nullptr;
-                service_->SyncCall(ServiceAlpha::kHeng, data_pack);
+                service_->SyncCall(ServiceAlpha::kHeng, data_dst);
                 delete data_dst;
                 break;
             }
             case kHaHa: {
-                HaHaData *data_src = (HaHaData *)data->data_process_;
-                PeonData data_pack;
+                HaHaData *data_src = (HaHaData *)data;
                 ServiceAlpha::HaData *data_dst = new ServiceAlpha::HaData;
                 data_dst->ha_ = data_src->haha_;
-                data_pack.data_process_ = data_src;
-                data_pack.data_report_ = nullptr;
-                service_->SyncCall(ServiceAlpha::kHa, data_pack);
+                service_->SyncCall(ServiceAlpha::kHa, data);
                 delete data_dst;
                 break;
             }
@@ -99,7 +92,7 @@ public:
         return 0xdeadbeaf;
     }
 
-    /* void ReportFunction(int oper, PeonData *data, int result)
+    /* void ReportFunction(int oper, void *data, int result)
     {
         (void)oper;
         (void)data;
@@ -111,18 +104,7 @@ public:
     // error: marked ‘override’, but does not override
     int SyncCall(int oper, void *data) /* override */
     {
-        PeonData data_pack;
-        data_pack.data_process_ = data;
-        data_pack.data_report_ = nullptr;
-        return Peon::SyncCall(oper, data_pack);
-    }
-
-    void AsyncMsg(int oper, void *data)
-    {
-        PeonData data_pack;
-        data_pack.data_process_ = data;
-        data_pack.data_report_ = nullptr;
-        Peon::AsyncMsg(oper, data_pack);
+        return ProcessFunction(oper, data);
     }
 
 private:
