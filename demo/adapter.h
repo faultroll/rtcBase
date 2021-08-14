@@ -54,6 +54,17 @@ public:
         std::cout << "ProcessFunction Adapter" << pthis->type_ << ": "
                   << oper << std::endl;
 
+        // if the api is like SendMsg(MsgId msg_id, OperType oper_type, void *data);
+        // you should construct you own |data| (you *CANNOT* avoid it)
+        // eg. struct Msg {MsgId msg_id_; void *data_};
+        // if you don't want to use default |subproc_funciton_|
+        // you can pass it through |data|
+        // eg.  struct Msg *msg = (struct Msg *)data;
+        //      if (msg->subproc_funciton_ != nullptr)
+        //          msg->subproc_funciton_(data, data_resp);
+        //      else
+        //          switch(oper) ... // default |subproc_function_|
+
         switch (oper) {
             case kHengHeng: {
                 HengHengData *data_src = (HengHengData *)data;

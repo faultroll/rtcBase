@@ -58,7 +58,9 @@ public:
     {
         resp_handle_ = resp_handle;
         resp_function_ = resp_function;
-
+        /* if (nullptr == resp_function)
+            return -1;
+        else */
         return 0;
     }
 
