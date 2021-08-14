@@ -165,7 +165,7 @@ int rtc_MtxTryLock(Mtx *mtx);
 // Unlock the given mutex
 int rtc_MtxUnlock(Mtx *mtx);
 
-#if 0 // Webrtc is using |Event| instead of |Condition|
+#if 0 // Webrtc is using |Event|(like Semaphore) instead of |Condition|
 // Condition variable
 #if defined(WEBRTC_WIN)
 enum {

@@ -10,8 +10,8 @@ public:
         : type_(type),
           thread_(thread),
           handler_(this),
-          report_handle_(nullptr),
-          report_function_(nullptr) {}
+          resp_handle_(nullptr),
+          resp_function_(nullptr) {}
     virtual ~Peon() {}
 
     /* virtual */ void AsyncMsg(int oper, void *data)
@@ -32,15 +32,17 @@ public:
         return result;
     }
 
+    // from top to buttom, using virtual function
     virtual void *DataDupFunction(int oper, void *data) = 0;
     virtual void DataFreeFunction(int oper, void *data) = 0;
     virtual int ProcessFunction(int oper, void *data) = 0;
-    typedef void (*ReportFunction)(void *handle, int oper, void *data, int result);
+    // from buttom to top, using callback function
+    typedef void (*RespFunction)(void *handle, int oper, void *data, int result);
 
-    int SetReportFunction(void *report_handle, ReportFunction report_function)
+    int SetRespFunction(void *resp_handle, RespFunction resp_function)
     {
-        report_handle_ = report_handle;
-        report_function_ = report_function;
+        resp_handle_ = resp_handle;
+        resp_function_ = resp_function;
 
         return 0;
     }
@@ -163,9 +165,9 @@ private:
                         *handler->result_ = result;
                     } else {
                         // async
-                        if (parent_->report_function_ != nullptr)
-                            parent_->report_function_(parent_->report_handle_,
-                                                      handler->oper_, handler->data_, result);
+                        if (parent_->resp_function_ != nullptr)
+                            parent_->resp_function_(parent_->resp_handle_,
+                                                    handler->oper_, handler->data_, result);
 
                     }
                     delete handler;
@@ -193,8 +195,8 @@ private:
 
     rtc::Thread *thread_;
     PeonHandler handler_;
-    void *report_handle_;
-    ReportFunction report_function_;
+    void *resp_handle_;
+    RespFunction resp_function_;
 
 };
 
