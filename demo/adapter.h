@@ -13,7 +13,9 @@ class AdapterAAA : public Peon
 public:
     AdapterAAA(rtc::Thread *thread, ServiceAlpha *service)
         : Peon(kAAA, thread),
-          service_(service) {}
+          service_(service) {
+              SetRespFunction(this, ReportFunction);
+          }
     virtual ~AdapterAAA() {}
 
     enum Operations {
@@ -29,42 +31,27 @@ public:
         int haha_;
     };
 
-    void *DataDupFunction(int oper, void *data)
+    const OperMap *OperFindFunction(int oper)
     {
-        const struct {
-            enum Operations oper_;
-            size_t size_;
-        } tbl_sz[] = {
-            {kHengHeng, sizeof(HengHengData)},
-            {kHaHa, sizeof(HaHaData)},
+        static constexpr OperMap oper_map[] = {
+            {kHengHeng, sizeof(HengHengData), 0, ProcessFunction},
+            {kHaHa, sizeof(HaHaData), 0, ProcessFunction},
         };
-        const int len = (int)(sizeof(tbl_sz) / sizeof(tbl_sz[0]));
+        const int len = (int)(sizeof(oper_map) / sizeof(oper_map[0]));
         int i;
-        size_t size;
         for (i = 0; i < len; i++)
-            if (tbl_sz[i].oper_ == oper)
+            if (oper_map[i].oper_ == oper)
                 break;
         if (i < len)
-            size = tbl_sz[i].size_;
+            return &oper_map[i];
         else
-            size = 1024;
-        void *data_tmp = malloc(size);
-        memmove(data_tmp, data, size);
-        std::cout << "DataDupFunction Adapter" << type_ << ": "
-                  << oper << ", size: " << size << ", data: " << data_tmp << std::endl;
-        return data_tmp;
+            return nullptr;
     }
 
-    void DataFreeFunction(int oper, void *data)
+    static int ProcessFunction(void *handle, int oper, void *data, void *data_resp)
     {
-        std::cout << "DataFreeFunction Adapter" << type_ << ": "
-                  << oper << ", data: " << data << std::endl;
-        free(data);
-    }
-
-    int ProcessFunction(int oper, void *data)
-    {
-        std::cout << "ProcessFunction Adapter" << type_ << ": "
+        AdapterAAA *pthis = (AdapterAAA *)handle;
+        std::cout << "ProcessFunction Adapter" << pthis->type_ << ": "
                   << oper << std::endl;
 
         switch (oper) {
@@ -72,7 +59,7 @@ public:
                 HengHengData *data_src = (HengHengData *)data;
                 ServiceAlpha::HengData *data_dst = new ServiceAlpha::HengData;
                 data_dst->heng_ = data_src->hengheng_;
-                service_->SyncCall(ServiceAlpha::kHeng, data_dst);
+                pthis->service_->SyncCall(ServiceAlpha::kHeng, data_dst, nullptr);
                 delete data_dst;
                 break;
             }
@@ -80,7 +67,7 @@ public:
                 HaHaData *data_src = (HaHaData *)data;
                 ServiceAlpha::HaData *data_dst = new ServiceAlpha::HaData;
                 data_dst->ha_ = data_src->haha_;
-                service_->SyncCall(ServiceAlpha::kHa, data);
+                pthis->service_->SyncCall(ServiceAlpha::kHa, data, nullptr);
                 delete data_dst;
                 break;
             }
@@ -90,21 +77,23 @@ public:
         }
 
         return 0xdeadbeaf;
+        (void)data_resp;
     }
 
-    /* void ReportFunction(int oper, void *data, int result)
+    static void ReportFunction(void *handle, int oper, int result, void *data_resp)
     {
-        (void)oper;
-        (void)data;
+        AdapterAAA *pthis = (AdapterAAA *)handle;
         // bug: data is changed when using |std::hex|, for it changes all numerics to hex after using it
         // std::cout << "ReportFunction Adapter: " << std::hex << result << std::endl;
-        printf("ReportFunction Adapter%d: %#x\n", type_, result);
-    } */
+        printf("ReportFunction Adapter%d: %#x\n", pthis->type_, result);
+        (void)oper;
+        (void)data_resp;
+    }
 
     // error: marked ‘override’, but does not override
     int SyncCall(int oper, void *data) /* override */
     {
-        return ProcessFunction(oper, data);
+        return ProcessFunction(this, oper, data, nullptr);
     }
 
 private:

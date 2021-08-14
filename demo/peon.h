@@ -1,6 +1,7 @@
 #ifndef PEON_H_
 #define PEON_H_
 
+#include <string.h>
 #include "rtc_base/thread.h"
 
 class Peon // can cascade
@@ -14,30 +15,44 @@ public:
           resp_function_(nullptr) {}
     virtual ~Peon() {}
 
+    // should be private
+    struct Result {
+        int code_;
+        void *data_;
+    };
+
     /* virtual */ void AsyncMsg(int oper, void *data)
     {
-        OnePushData *handler = new OnePushData(this, oper, data, nullptr);
+        OnePushData *handle = new OnePushData(this, oper, data, nullptr);
         thread_->Post(RTC_FROM_HERE, &handler_,
-                      PeonHandler::kOnePush, handler);
+                      PeonHandler::kOnePush, handle);
     }
 
-    /* virtual */ int SyncCall(int oper, void *data)
+    /* virtual */ int SyncCall(int oper, void *data, void *data_resp)
     {
-        int result;
+        Result result;
+        result.data_ = data_resp;
 
-        OnePushData *handler = new OnePushData(this, oper, data, &result);
+        OnePushData *handle = new OnePushData(this, oper, data, &result);
         thread_->Send(RTC_FROM_HERE, &handler_,
-                      PeonHandler::kOnePush, handler);
+                      PeonHandler::kOnePush, handle);
 
-        return result;
+        return result.code_;
     }
 
     // from top to buttom, using virtual function
-    virtual void *DataDupFunction(int oper, void *data) = 0;
-    virtual void DataFreeFunction(int oper, void *data) = 0;
-    virtual int ProcessFunction(int oper, void *data) = 0;
+    typedef int (*ProcFunction)(void *handle, int oper, void *data, void *data_resp);
+    struct OperMap { // no need to use `typedef struct OperMap_ { ... } OperMap` in |__cplusplus|
+        // key
+        int oper_;
+        // val
+        size_t size_;
+        size_t resp_size_;
+        ProcFunction proc_function_;
+    };
+    virtual const OperMap *OperFindFunction(int oper) = 0;
     // from buttom to top, using callback function
-    typedef void (*RespFunction)(void *handle, int oper, void *data, int result);
+    typedef void (*RespFunction)(void *handle, int oper, int result, void *data_resp);
 
     int SetRespFunction(void *resp_handle, RespFunction resp_function)
     {
@@ -52,59 +67,75 @@ public:
     {
     public:
         AutoCycleData(Peon *parent, int oper, void *data, int interval)
-            : oper_(oper),
-              data_(data),
+            : parent_(parent),
+              oper_(oper),
               cycling_(true),
-              interval_(interval),
-              //   quit_(false),
-              parent_(parent)
+              interval_(interval)
+              // quit_(false)
         {
-            data_ = parent_->DataDupFunction(oper_, data_);
+            const OperMap *map = parent_->OperFindFunction(oper_);
+            if (map != nullptr) {
+                size_t size;
+                size = map->size_;
+                if (data != nullptr
+                    && size != 0) {
+                    data_ = malloc(size);
+                    memmove(data_, data, size);
+                } else {
+                    data_ = nullptr;
+                }
+                proc_function_ = map->proc_function_;
+            } else {
+                // not support oper
+                data_ = nullptr;
+                proc_function_ = nullptr;
+            }
         }
         ~AutoCycleData()
         {
-            parent_->DataFreeFunction(oper_, data_);
+            free(data_); // free nullptr is acceptable
         }
 
+        // private:
+        Peon *parent_;
         int oper_;
         void *data_;
         bool cycling_;
         int interval_;
         // bool quit_;
-
-    private:
-        Peon *parent_;
+        ProcFunction proc_function_;
     };
 
+    // TODO what if cycle msg need result? |data_resp_| seems not working here
     AutoCycleData *EnterCycle(int oper, void *data, int interval)
     {
-        AutoCycleData *handler = new AutoCycleData(this, oper, data, interval);
+        AutoCycleData *handle = new AutoCycleData(this, oper, data, interval);
         thread_->Post(RTC_FROM_HERE, &handler_,
-                      PeonHandler::kAutoCycle, handler);
-        return handler;
+                      PeonHandler::kAutoCycle, handle);
+        return handle;
     }
 
     // should be private
-    void ToNextCycle(AutoCycleData *handler)
+    void ToNextCycle(AutoCycleData *handle)
     {
-        thread_->PostDelayed(RTC_FROM_HERE, handler->interval_, &handler_,
-                             PeonHandler::kAutoCycle, handler);
+        thread_->PostDelayed(RTC_FROM_HERE, handle->interval_, &handler_,
+                             PeonHandler::kAutoCycle, handle);
     }
 
-    void ExitCycle(AutoCycleData *handler)
+    void ExitCycle(AutoCycleData *handle)
     {
-        handler->cycling_ = false;
-        // |handler| is deleted in |OnMessage|
+        handle->cycling_ = false;
+        // |handle| is deleted in |OnMessage|
         /* if (thread_->IsCurrent()) {
             // cannot |Clear| if more than one |AutoCycleData|
             // thread_->Clear(&handler_, PeonHandler::kAutoCycle);
         } else {
             // should wait until |OnMessage| done
-            while (!handler->quit_) {
-                rtc::Thread::Current()->SleepMs(handler->interval_);
+            while (!handle->quit_) {
+                rtc::Thread::Current()->SleepMs(handle->interval_);
             }
         }
-        delete handler; */
+        delete handle; */
     }
 
     int type_;
@@ -113,34 +144,63 @@ private:
     class OnePushData : public rtc::MessageData
     {
     public:
-        OnePushData(Peon *parent, int oper, void *data, int *result)
-            : oper_(oper),
-              data_(data),
-              result_(result),
-              parent_(parent)
+        OnePushData(Peon *parent, int oper, void *data, Result *result)
+            : parent_(parent),
+              oper_(oper)
         {
-            if (result_ != nullptr) {
-                ; // do nothing
+            const OperMap *map = parent_->OperFindFunction(oper_);
+            if (map != nullptr) {
+                if (result_ != nullptr) {
+                    // |sync| method
+                    // dup |data_|
+                    data_ = data; // no need to check |size|
+                    // dup |data_resp_|
+                    data_resp_ = result->data_;
+                    result_ = &result->code_;
+                } else {
+                    // |async| method
+                    size_t size;
+                    // dup |data_|
+                    size = map->size_;
+                    if (data != nullptr
+                        && size != 0) {
+                        data_ = malloc(size);
+                        memmove(data_, data, size);
+                    } else {
+                        data_ = nullptr; // maybe something wrong
+                    }
+                    // dup |data_resp_|
+                    size = map->resp_size_;
+                    if (size != 0) {
+                        data_resp_ = malloc(size);
+                    } else {
+                        data_resp_ = nullptr;
+                    }
+                    result_ = nullptr;
+                }
+                proc_function_ = map->proc_function_;
             } else {
-                data_ = parent_->DataDupFunction(oper_, data_);
+                // not support oper
+                data_ = nullptr;
+                data_resp_ = nullptr;
+                result_ = nullptr;
+                proc_function_ = nullptr;
             }
         }
         ~OnePushData()
         {
-            if (result_ != nullptr) {
-                ; // do nothing
-            } else {
-                // should be here, otherwise memleak will occur when |Stop|
-                parent_->DataFreeFunction(oper_, data_);
-            }
+            // should be here, otherwise memleak will occur when |Stop|
+            free(data_resp_);
+            free(data_);
         }
 
+        // private:
+        Peon *parent_;
         int oper_;
         void *data_;
+        void *data_resp_;
         int *result_;
-
-    private:
-        Peon *parent_;
+        ProcFunction proc_function_;
     };
 
     class PeonHandler : public rtc::MessageHandler
@@ -158,29 +218,28 @@ private:
         {
             switch (msg->message_id) {
                 case kOnePush: {
-                    OnePushData *handler = (OnePushData *)msg->pdata;
-                    int result = parent_->ProcessFunction(handler->oper_, handler->data_);
-                    if (handler->result_ != nullptr) {
+                    OnePushData *handle = (OnePushData *)msg->pdata;
+                    int result =
+                        handle->proc_function_(handle->parent_, handle->oper_, handle->data_, handle->data_resp_);
+                    if (handle->result_ != nullptr) {
                         // sync
-                        *handler->result_ = result;
+                        *handle->result_ = result;
                     } else {
                         // async
                         if (parent_->resp_function_ != nullptr)
-                            parent_->resp_function_(parent_->resp_handle_,
-                                                    handler->oper_, handler->data_, result);
-
+                            parent_->resp_function_(parent_->resp_handle_, handle->oper_, result, handle->data_resp_);
                     }
-                    delete handler;
+                    delete handle;
                     break;
                 }
                 case kAutoCycle: {
-                    AutoCycleData *handler = (AutoCycleData *)msg->pdata;
-                    if (handler->cycling_) {
-                        parent_->ProcessFunction(handler->oper_, handler->data_);
-                        parent_->ToNextCycle(handler);
+                    AutoCycleData *handle = (AutoCycleData *)msg->pdata;
+                    if (handle->cycling_) {
+                        handle->proc_function_(handle->parent_, handle->oper_, handle->data_, nullptr);
+                        parent_->ToNextCycle(handle);
                     } else {
-                        // handler->quit_ = true;
-                        delete handler;
+                        // handle->quit_ = true;
+                        delete handle;
                     }
                     break;
                 }

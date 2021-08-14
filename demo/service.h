@@ -13,14 +13,17 @@ class ServiceAlpha : public Peon
 {
 public:
     // singleton
-    ServiceAlpha *Instance(rtc::Thread *thread)
+    /* ServiceAlpha *Instance(rtc::Thread *thread)
     {
         static ServiceAlpha *const service = new ServiceAlpha(thread);
         return service;
-    }
+    } */
 
     ServiceAlpha(rtc::Thread *thread)
-        : Peon(kAlpha, thread) {}
+        : Peon(kAlpha, thread)
+    {
+        SetRespFunction(this, ReportFunction);
+    }
     virtual ~ServiceAlpha() {}
 
     enum Operations {
@@ -41,43 +44,28 @@ public:
         int hengha_;
     };
 
-    void *DataDupFunction(int oper, void *data)
+    const OperMap *OperFindFunction(int oper)
     {
-        const struct {
-            enum Operations oper_;
-            size_t size_;
-        } tbl_sz[] = {
-            {kHeng, sizeof(HengData)},
-            {kHa, sizeof(HaData)},
-            {kHengHa, sizeof(HengHaData)},
+        static constexpr OperMap oper_map[] = {
+            {kHeng, sizeof(HengData), 0, ProcessFunction},
+            {kHa, sizeof(HaData), 0, ProcessFunction},
+            {kHengHa, sizeof(HengHaData), 0, ProcessFunction},
         };
-        const int len = (int)(sizeof(tbl_sz) / sizeof(tbl_sz[0]));
+        const int len = (int)(sizeof(oper_map) / sizeof(oper_map[0]));
         int i;
-        size_t size;
         for (i = 0; i < len; i++)
-            if (tbl_sz[i].oper_ == oper)
+            if (oper_map[i].oper_ == oper)
                 break;
         if (i < len)
-            size = tbl_sz[i].size_;
+            return &oper_map[i];
         else
-            size = 1024;
-        void *data_tmp = malloc(size);
-        memmove(data_tmp, data, size);
-        std::cout << "DataDupFunction Service" << type_ << ": "
-                  << oper << ", size: " << size << ", data: " << data_tmp << std::endl;
-        return data_tmp;
+            return nullptr;
     }
 
-    void DataFreeFunction(int oper, void *data)
+    static int ProcessFunction(void *handle, int oper, void *data, void *data_resp)
     {
-        std::cout << "DataFreeFunction Service" << type_ << ": "
-                  << oper << ", data: " << data << std::endl;
-        free(data);
-    }
-
-    int ProcessFunction(int oper, void *data)
-    {
-        std::cout << "ProcessFunction Service" << type_ << ": "
+        ServiceAlpha *pthis = (ServiceAlpha *)handle;
+        std::cout << "ProcessFunction Service" << pthis->type_ << ": "
                   << oper << std::endl;
 
         switch (oper) {
@@ -86,13 +74,13 @@ public:
                 std::cout << "Heng: " << data_tmp->heng_ << std::endl;
                 HengHaData count;
                 count.hengha_ = 0;
-                handler_ = EnterCycle(kHengHa, &count, 200);
+                pthis->handle_ = pthis->EnterCycle(kHengHa, &count, 200);
                 break;
             }
             case kHa: {
                 HaData *data_tmp = (HaData *)data;
                 std::cout << "Ha: " << data_tmp->ha_ << std::endl;
-                ExitCycle(handler_);
+                pthis->ExitCycle(pthis->handle_);
                 break;
             }
             case kHengHa: {
@@ -107,17 +95,19 @@ public:
         }
 
         return 0xdeadbeaf;
+        (void)data_resp;
     }
 
-    /* void ReportFunction(int oper, void *data, int result)
+    static void ReportFunction(void *handle, int oper, int result, void *data_resp)
     {
+        ServiceAlpha *pthis = (ServiceAlpha *)handle;
+        printf("ReportFunction Service%d: %#x\n", pthis->type_, result);
         (void)oper;
-        (void)data;
-        printf("ReportFunction Service%d: %#x\n", type_, result);
-    } */
+        (void)data_resp;
+    }
 
 private:
-    AutoCycleData *handler_;
+    AutoCycleData *handle_;
 };
 
 #endif
