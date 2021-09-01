@@ -8,8 +8,8 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
-#ifndef RTC_BASE_ATOMICOPS_H_
-#define RTC_BASE_ATOMICOPS_H_
+#ifndef RTC_BASE_ATOMIC_OPS_H_
+#define RTC_BASE_ATOMIC_OPS_H_
 
 // TODO Mimic c11 <stdatomic.h>
 
@@ -82,8 +82,6 @@ class AtomicOps {
 #endif
 };
 
+}  // namespace rtc
 
-
-}
-
-#endif  // RTC_BASE_ATOMICOPS_H_
+#endif  // RTC_BASE_ATOMIC_OPS_H_

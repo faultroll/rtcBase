@@ -11,9 +11,9 @@
 #include "rtc_base/thread.h"
 
 #include "rtc_base/checks.h"
-#include "rtc_base/nullsocketserver.h"
+#include "rtc_base/null_socket_server.h"
 #include "rtc_base/platform_thread.h"
-#include "rtc_base/timeutils.h"
+#include "rtc_base/time_utils.h"
 #include "typedefs.h"  // NOLINT(build/include)
 
 namespace rtc {

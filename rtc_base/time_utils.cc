@@ -8,7 +8,7 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
-#include "rtc_base/timeutils.h"
+#include "rtc_base/time_utils.h"
 
 #if defined(WEBRTC_POSIX)
 #include <sys/time.h>

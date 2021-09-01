@@ -17,13 +17,13 @@
 #include <queue>
 #include <vector>
 
-#include "rtc_base/constructormagic.h"
+#include "rtc_base/constructor_magic.h"
 #include "rtc_base/thread_message.h"
 #include "rtc_base/event.h"
 #include "rtc_base/platform_thread.h"
-#include "rtc_base/criticalsection.h"
-#include "rtc_base/messagehandler.h"
-#include "rtc_base/socketserver.h"
+#include "rtc_base/critical_section.h"
+#include "rtc_base/message_handler.h"
+#include "rtc_base/socket_server.h"
 #include "rtc_base/thread_annotations.h"
 
 namespace rtc {

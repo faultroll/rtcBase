@@ -8,8 +8,8 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
-#ifndef RTC_BASE_SOCKETFACTORY_H_
-#define RTC_BASE_SOCKETFACTORY_H_
+#ifndef RTC_BASE_SOCKET_FACTORY_H_
+#define RTC_BASE_SOCKET_FACTORY_H_
 
 /* #include "rtc_base/asyncsocket.h"
 #include "rtc_base/socket.h" */
@@ -37,6 +37,6 @@ public:
   virtual AsyncSocket* CreateAsyncSocket(int family, int type) = 0;
 };
 
-} // namespace rtc
+}  // namespace rtc
 
-#endif // RTC_BASE_SOCKETFACTORY_H_
+#endif  // RTC_BASE_SOCKET_FACTORY_H_

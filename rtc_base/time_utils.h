@@ -8,8 +8,8 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
-#ifndef RTC_BASE_TIMEUTILS_H_
-#define RTC_BASE_TIMEUTILS_H_
+#ifndef RTC_BASE_TIME_UTILS_H_
+#define RTC_BASE_TIME_UTILS_H_
 
 #include <stdint.h>
 #include <time.h>
@@ -150,4 +150,4 @@ int64_t TimespecToTime(struct timespec *ts);
 
 // }  // namespace rtc
 
-#endif  // RTC_BASE_TIMEUTILS_H_
+#endif  // RTC_BASE_TIME_UTILS_H_

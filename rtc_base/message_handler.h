@@ -13,7 +13,7 @@
 
 #include <utility>
 
-#include "rtc_base/constructormagic.h"
+#include "rtc_base/constructor_magic.h"
 
 namespace rtc {
 
@@ -37,6 +37,6 @@ class MessageHandler {
   RTC_DISALLOW_COPY_AND_ASSIGN(MessageHandler);
 };
 
-} // namespace rtc
+}  // namespace rtc
 
-#endif // RTC_BASE_MESSAGEHANDLER_H_
+#endif  // RTC_BASE_MESSAGE_HANDLER_H_

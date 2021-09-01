@@ -11,7 +11,7 @@
 #ifndef RTC_BASE_EVENT_H_
 #define RTC_BASE_EVENT_H_
 
-#include "rtc_base/constructormagic.h"
+#include "rtc_base/constructor_magic.h"
 #if defined(WEBRTC_WIN)
 #include <windows.h>
 #elif defined(WEBRTC_POSIX)

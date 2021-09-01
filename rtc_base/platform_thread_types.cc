@@ -12,7 +12,7 @@
 #include "typedefs.h"  // NOLINT(build/include)
 #include <stdlib.h>
 #include <math.h>
-#include "rtc_base/timeutils.h"
+#include "rtc_base/time_utils.h"
 
 /* #if defined(WEBRTC_LINUX)
 #include <sys/prctl.h>

@@ -13,7 +13,7 @@
 #include <list>
 
 #include "rtc_base/location.h"
-#include "rtc_base/messagehandler.h"
+#include "rtc_base/message_handler.h"
 
 namespace rtc {
 
