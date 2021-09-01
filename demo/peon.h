@@ -36,6 +36,9 @@ public:
         OnePushData *handle = new OnePushData(this, oper, data, &result);
         thread_->Send(RTC_FROM_HERE, &handler_,
                       PeonHandler::kOnePush, handle);
+        // block will occur if |SyncCall| interval too short
+        // so yield here, avoid it, trying to find why
+        rtc::Thread::Current()->SleepMs(0);
 
         return result.code_;
     }

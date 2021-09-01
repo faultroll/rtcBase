@@ -14,6 +14,7 @@
 #include <utility>
 
 #include "rtc_base/constructor_magic.h"
+#include "typedefs.h"
 
 namespace rtc {
 
@@ -25,7 +26,7 @@ struct Message;
 // This class performs expensive cleanup in the dtor that will affect all
 // instances of Thread (and their pending message queues) and will block the
 // current thread as well as all other threads.
-class MessageHandler {
+class RTC_EXPORT MessageHandler {
  public:
   virtual ~MessageHandler();
   virtual void OnMessage(Message* msg) = 0;

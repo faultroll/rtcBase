@@ -22,8 +22,8 @@ namespace rtc {
 
 // Locking methods (Enter, TryEnter, Leave)are const to permit protecting
 // members inside a const context without requiring mutable CriticalSections
-// everywhere.
-class RTC_LOCKABLE CriticalSection {
+// everywhere. CriticalSection is reentrant lock.
+class RTC_LOCKABLE RTC_EXPORT CriticalSection {
  public:
   CriticalSection();
   ~CriticalSection();

@@ -23,7 +23,7 @@
 #else
 #define RTC_NORETURN
 #endif
-#endif
+#endif // RTC_NORETURN
 
 #ifndef RTC_CHECKRETURN
 #if defined(WEBRTC_WIN)
@@ -33,7 +33,7 @@
 #else
 #define RTC_CHECKRETURN
 #endif
-#endif
+#endif // RTC_CHECKRETURN
 
 // Prevent the compiler from warning about an unused variable. For example:
 //   int result = DoSomething();
@@ -43,6 +43,28 @@
 // suppressing the compiler warning.
 #ifndef RTC_UNUSED
 #define RTC_UNUSED(x) static_cast<void>(x)
-#endif  // RTC_UNUSED
+#endif // RTC_UNUSED
+
+// RTC_EXPORT is used to mark symbols as exported or imported when WebRTC is
+// built or used as a shared library.
+// When WebRTC is built as a static library the RTC_EXPORT macro expands to
+// nothing.
+/* // #ifdef WEBRTC_ENABLE_SYMBOL_EXPORT
+#if defined(WEBRTC_WIN)
+#ifdef WEBRTC_LIBRARY_IMPL
+#define RTC_EXPORT __declspec(dllexport)
+#else
+#define RTC_EXPORT __declspec(dllimport)
+#endif
+#elif defined(WEBRTC_POSIX)
+#if __has_attribute(visibility) && defined(WEBRTC_LIBRARY_IMPL)
+#define RTC_EXPORT __attribute__((visibility("default")))
+#endif
+#endif // WEBRTC_WIN
+// #endif // WEBRTC_ENABLE_SYMBOL_EXPORT */
+// the |else| situation
+#ifndef RTC_EXPORT
+#define RTC_EXPORT
+#endif // RTC_EXPORT
 
 #endif  // TYPEDEFS_H_

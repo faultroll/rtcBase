@@ -30,7 +30,7 @@ namespace rtc {
 
 class Thread;
 
-class ThreadManager {
+class RTC_EXPORT ThreadManager {
  public:
   static const int kForever = -1;
 
@@ -90,7 +90,7 @@ class ThreadManager {
 
 // WARNING! SUBCLASSES MUST CALL Stop() IN THEIR DESTRUCTORS!  See ~Thread().
 
-class RTC_LOCKABLE Thread {
+class RTC_LOCKABLE RTC_EXPORT Thread {
  public:
   static const int kForever = -1;
 

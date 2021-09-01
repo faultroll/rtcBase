@@ -21,7 +21,7 @@ class Socket;
 class AsyncSocket;
 
 class SocketFactory {
-public:
+ public:
   virtual ~SocketFactory() {}
 
   // Returns a new socket for blocking communication.  The type can be
