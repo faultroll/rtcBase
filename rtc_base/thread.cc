@@ -20,6 +20,21 @@ namespace rtc {
 
 namespace {
 
+class MessageHandlerWithTask final : public MessageHandler {
+ public:
+  MessageHandlerWithTask() = default;
+
+  void OnMessage(Message* msg) override {
+    static_cast<rtc_thread_internal::MessageLikeTask*>(msg->pdata)->Run();
+    delete msg->pdata;
+  }
+
+ private:
+  ~MessageHandlerWithTask() override {}
+
+  RTC_DISALLOW_COPY_AND_ASSIGN(MessageHandlerWithTask);
+};
+
 class RTC_SCOPED_LOCKABLE MarkProcessingCritScope {
  public:
   MarkProcessingCritScope(const CriticalSection* cs, size_t* processing)
@@ -83,8 +98,45 @@ void ThreadManager::RemoveInternal(Thread* message_queue) {
     if (iter != message_queues_.end()) {
       message_queues_.erase(iter);
     }
+#if RTC_DCHECK_IS_ON
+    RemoveFromSendGraph(message_queue);
+#endif
   }
 }
+
+#if RTC_DCHECK_IS_ON
+void ThreadManager::RemoveFromSendGraph(Thread* thread) {
+  for (auto it = send_graph_.begin(); it != send_graph_.end();) {
+    if (it->first == thread) {
+      it = send_graph_.erase(it);
+    } else {
+      it->second.erase(thread);
+      ++it;
+    }
+  }
+}
+
+void ThreadManager::RegisterSendAndCheckForCycles(Thread* source,
+                                                  Thread* target) {
+  CritScope cs(&crit_);
+  std::deque<Thread*> all_targets({target});
+  // We check the pre-existing who-sends-to-who graph for any path from target
+  // to source. This loop is guaranteed to terminate because per the send graph
+  // invariant, there are no cycles in the graph.
+  for (size_t i = 0; i < all_targets.size(); i++) {
+    const auto& targets = send_graph_[all_targets[i]];
+    all_targets.insert(all_targets.end(), targets.begin(), targets.end());
+  }
+  /* RTC_CHECK_EQ(absl::c_count(all_targets, source), 0)
+      << " send loop between " << source->name() << " and " << target->name(); */
+  RTC_CHECK_EQ(std::count(all_targets.begin(), all_targets.end(), source), 0);
+
+  // We may now insert source -> target without creating a cycle, since there
+  // was no path from target to source per the prior CHECK.
+  send_graph_[source].insert(target);
+}
+#endif
+
 // static
 void ThreadManager::Clear(MessageHandler* handler) {
   return Instance()->ClearInternal(handler);
@@ -730,10 +782,18 @@ void Thread::Send(const Location& posted_from,
     return;
   }
 
+  Thread* current_thread = Thread::Current();
+#if RTC_DCHECK_IS_ON
+  if (current_thread) {
+    ThreadManager::Instance()->RegisterSendAndCheckForCycles(current_thread,
+                                                             this);
+  }
+#endif
+
 #if 0 /* defined(USING_SENDLIST) */
-  AutoThread thread;
-  Thread *current_thread = Thread::Current();
-  RTC_DCHECK(current_thread != nullptr);  // AutoThread ensures this
+  /* AutoThread thread;
+  Thread* current_thread = Thread::Current();
+  RTC_DCHECK(current_thread != nullptr);  // AutoThread ensures this */
 
   bool ready = false;
   {
@@ -777,8 +837,6 @@ void Thread::Send(const Location& posted_from,
   }
 
 #else
-  Thread* current_thread = Thread::Current();
-
   // Perhaps down the line we can get rid of this workaround and always require
   // current_thread to be valid when Send() is called.
   std::unique_ptr<rtc::Event> done_event;
@@ -838,10 +896,28 @@ void Thread::Send(const Location& posted_from,
 #endif
 }
 
+/* void Thread::InvokeInternal(const Location& posted_from,
+                            rtc::FunctionView<void()> functor) {
+  TRACE_EVENT2("webrtc", "Thread::Invoke", "src_file", posted_from.file_name(),
+               "src_func", posted_from.function_name());
+
+  class FunctorMessageHandler : public MessageHandler {
+   public:
+    explicit FunctorMessageHandler(rtc::FunctionView<void()> functor)
+        : functor_(functor) {}
+    void OnMessage(Message* msg) override { functor_(); }
+
+   private:
+    rtc::FunctionView<void()> functor_;
+  } handler(functor);
+
+  Send(posted_from, &handler);
+} */
+
 #if 0 /* defined(USING_SENDLIST) */
-void Thread::ReceiveSends() {
+/* void Thread::ReceiveSends() {
   ReceiveSendsFromThread(nullptr);
-}
+} */
 
 void Thread::ReceiveSendsFromThread(const Thread* source) {
   // Receive a sent message. Cleanup scenarios:

@@ -78,29 +78,26 @@ class TryCritScope {
 
 // A POD lock used to protect global variables. Do NOT use for other purposes.
 // No custom constructor or private data member should be added.
-class RTC_LOCKABLE GlobalLockPod {
+class RTC_LOCKABLE GlobalLock {
  public:
-  void Lock() RTC_EXCLUSIVE_LOCK_FUNCTION();
+  constexpr GlobalLock() 
+      : lock_acquired_(0) {}
 
+  void Lock() RTC_EXCLUSIVE_LOCK_FUNCTION();
   void Unlock() RTC_UNLOCK_FUNCTION();
 
-  volatile int lock_acquired;
-};
-
-class GlobalLock : public GlobalLockPod {
- public:
-  GlobalLock();
+ private:
+  volatile int lock_acquired_;
 };
 
 // GlobalLockScope, for serializing execution through a scope.
 class RTC_SCOPED_LOCKABLE GlobalLockScope {
  public:
-  explicit GlobalLockScope(GlobalLockPod* lock)
-      RTC_EXCLUSIVE_LOCK_FUNCTION(lock);
+  explicit GlobalLockScope(GlobalLock* lock) RTC_EXCLUSIVE_LOCK_FUNCTION(lock);
   ~GlobalLockScope() RTC_UNLOCK_FUNCTION();
 
  private:
-  GlobalLockPod* const lock_;
+  GlobalLock* const lock_;
   RTC_DISALLOW_COPY_AND_ASSIGN(GlobalLockScope);
 };
 

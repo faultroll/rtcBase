@@ -14,6 +14,7 @@
 #ifndef TYPEDEFS_H_
 #define TYPEDEFS_H_
 
+// From rtc_base/checks.h
 #ifndef RTC_NORETURN
 // Annotate a function that will not return control flow to the caller.
 #if defined(WEBRTC_WIN)
@@ -25,6 +26,7 @@
 #endif
 #endif // RTC_NORETURN
 
+// Add, used in rtc_base/critical_section.h
 #ifndef RTC_CHECKRETURN
 #if defined(WEBRTC_WIN)
 #define RTC_CHECKRETURN _Check_return_
@@ -35,6 +37,7 @@
 #endif
 #endif // RTC_CHECKRETURN
 
+// From rtc_base/system/unused.h
 // Prevent the compiler from warning about an unused variable. For example:
 //   int result = DoSomething();
 //   assert(result == 17);
@@ -45,6 +48,7 @@
 #define RTC_UNUSED(x) static_cast<void>(x)
 #endif // RTC_UNUSED
 
+// From rtc_base/system/rtc_export.h
 // RTC_EXPORT is used to mark symbols as exported or imported when WebRTC is
 // built or used as a shared library.
 // When WebRTC is built as a static library the RTC_EXPORT macro expands to

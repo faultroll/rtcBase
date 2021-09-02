@@ -13,8 +13,10 @@
 
 #include <algorithm>
 #include <list>
-#include <string>
+#include <map>
 #include <queue>
+#include <set>
+#include <string>
 #include <vector>
 
 #include "rtc_base/constructor_magic.h"
@@ -29,6 +31,36 @@
 namespace rtc {
 
 class Thread;
+
+namespace rtc_thread_internal {
+
+// Can be put in rtc_base/thread_message.h
+// should use this to send function pointer instead of working in |OnMessage|
+// 1. |Send|, |SetDispatchWarningMs| and |SleepMs| in |QueuedTaskHandler| 
+// 2. remove |FunctorT| in |PostTask| and |PostDelayedTask|, more c like
+// 3. remove |FunctorT| in |InvokeInternal|
+class MessageLikeTask : public MessageData {
+ public:
+  virtual void Run() = 0;
+};
+
+/* template <class FunctorT>
+class MessageWithFunctor final : public MessageLikeTask {
+ public:
+  explicit MessageWithFunctor(FunctorT&& functor)
+      : functor_(std::forward<FunctorT>(functor)) {}
+
+  void Run() override { functor_(); }
+
+ private:
+  ~MessageWithFunctor() override {}
+
+  typename std::remove_reference<FunctorT>::type functor_;
+
+  RTC_DISALLOW_COPY_AND_ASSIGN(MessageWithFunctor);
+}; */
+
+}  // namespace rtc_thread_internal
 
 class RTC_EXPORT ThreadManager {
  public:
@@ -62,6 +94,13 @@ class RTC_EXPORT ThreadManager {
 
   bool IsMainThread();
 
+#if RTC_DCHECK_IS_ON
+  // Registers that a Send operation is to be performed between |source| and
+  // |target|, while checking that this does not cause a send cycle that could
+  // potentially cause a deadlock.
+  void RegisterSendAndCheckForCycles(Thread* source, Thread* target);
+#endif
+
  private:
   ThreadManager();
   ~ThreadManager();
@@ -70,6 +109,9 @@ class RTC_EXPORT ThreadManager {
   void AddInternal(Thread* message_queue);
   void RemoveInternal(Thread* message_queue);
   void ClearInternal(MessageHandler* handler);
+#if RTC_DCHECK_IS_ON
+  void RemoveFromSendGraph(Thread* thread) RTC_EXCLUSIVE_LOCKS_REQUIRED(crit_);
+#endif
 
   // This list contains all live Threads.
   std::vector<Thread*> message_queues_ RTC_GUARDED_BY(crit_);
@@ -79,6 +121,12 @@ class RTC_EXPORT ThreadManager {
   // calls.
   CriticalSection crit_;
   size_t processing_ RTC_GUARDED_BY(crit_) = 0;
+#if RTC_DCHECK_IS_ON
+  // Represents all thread seand actions by storing all send targets per thread.
+  // This is used by RegisterSendAndCheckForCycles. This graph has no cycles
+  // since we will trigger a CHECK failure if a cycle is introduced.
+  std::map<Thread*, std::set<Thread*>> send_graph_ RTC_GUARDED_BY(crit_);
+#endif
 
   Tss key_;
 
@@ -219,6 +267,83 @@ class RTC_LOCKABLE RTC_EXPORT Thread {
                     uint32_t id = 0,
                     MessageData* pdata = nullptr);
 
+  // Convenience method to invoke a functor on another thread.  Caller must
+  // provide the |ReturnT| template argument, which cannot (easily) be deduced.
+  // Uses Send() internally, which blocks the current thread until execution
+  // is complete.
+  // Ex: bool result = thread.Invoke<bool>(RTC_FROM_HERE,
+  // &MyFunctionReturningBool);
+  // NOTE: This function can only be called when synchronous calls are allowed.
+  // See ScopedDisallowBlockingCalls for details.
+  // NOTE: Blocking invokes are DISCOURAGED, consider if what you're doing can
+  // be achieved with PostTask() and callbacks instead.
+  /* template <
+      class ReturnT,
+      typename = typename std::enable_if<!std::is_void<ReturnT>::value>::type>
+  ReturnT Invoke(const Location& posted_from, FunctionView<ReturnT()> functor) {
+    ReturnT result;
+    InvokeInternal(posted_from, [functor, &result] { result = functor(); });
+    return result;
+  }
+
+  template <
+      class ReturnT,
+      typename = typename std::enable_if<std::is_void<ReturnT>::value>::type>
+  void Invoke(const Location& posted_from, FunctionView<void()> functor) {
+    InvokeInternal(posted_from, functor);
+  } */
+
+  // Posts a task to invoke the functor on |this| thread asynchronously, i.e.
+  // without blocking the thread that invoked PostTask(). Ownership of |functor|
+  // is passed and (usually, see below) destroyed on |this| thread after it is
+  // invoked.
+  // Requirements of FunctorT:
+  // - FunctorT is movable.
+  // - FunctorT implements "T operator()()" or "T operator()() const" for some T
+  //   (if T is not void, the return value is discarded on |this| thread).
+  // - FunctorT has a public destructor that can be invoked from |this| thread
+  //   after operation() has been invoked.
+  // - The functor must not cause the thread to quit before PostTask() is done.
+  //
+  // Destruction of the functor/task mimics what TaskQueue::PostTask does: If
+  // the task is run, it will be destroyed on |this| thread. However, if there
+  // are pending tasks by the time the Thread is destroyed, or a task is posted
+  // to a thread that is quitting, the task is destroyed immediately, on the
+  // calling thread. Destroying the Thread only blocks for any currently running
+  // task to complete. Note that TQ abstraction is even vaguer on how
+  // destruction happens in these cases, allowing destruction to happen
+  // asynchronously at a later time and on some arbitrary thread. So to ease
+  // migration, don't depend on Thread::PostTask destroying un-run tasks
+  // immediately.
+  //
+  // Example - Calling a class method:
+  // class Foo {
+  //  public:
+  //   void DoTheThing();
+  // };
+  // Foo foo;
+  // thread->PostTask(RTC_FROM_HERE, Bind(&Foo::DoTheThing, &foo));
+  //
+  // Example - Calling a lambda function:
+  // thread->PostTask(RTC_FROM_HERE,
+  //                  [&x, &y] { x.TrackComputations(y.Compute()); });
+  /* template <class FunctorT>
+  void PostTask(const Location& posted_from, FunctorT&& functor) {
+    Post(posted_from, GetPostTaskMessageHandler(), 0,
+         new rtc_thread_internal::MessageWithFunctor<FunctorT>(
+             std::forward<FunctorT>(functor)));
+  }
+  template <class FunctorT>
+  void PostDelayedTask(const Location& posted_from,
+                       FunctorT&& functor,
+                       uint32_t milliseconds) {
+    PostDelayed(posted_from, milliseconds, GetPostTaskMessageHandler(),
+                0,
+                new rtc_thread_internal::MessageWithFunctor<FunctorT>(
+                    std::forward<FunctorT>(functor)));
+  } */
+
+
   // ProcessMessages will process I/O and dispatch messages until:
   //  1) cms milliseconds have elapsed (returns true)
   //  2) Stop() is called (returns false)
@@ -327,6 +452,8 @@ class RTC_LOCKABLE RTC_EXPORT Thread {
   // Return true if the thread is currently running.
   bool IsRunning();
 
+  /* void InvokeInternal(const Location& posted_from, MessageHandler* handler); */
+
 #if 0 /* defined(USING_SENDLIST) */
   struct _SendMessage {
     _SendMessage() {}
@@ -335,7 +462,7 @@ class RTC_LOCKABLE RTC_EXPORT Thread {
     bool *ready;
   };
 
-  void ReceiveSends();
+  /* void ReceiveSends(); */
 
   // Processes received "Send" requests. If |source| is not null, only requests
   // from |source| are processed, otherwise, all requests are processed.
@@ -346,8 +473,6 @@ class RTC_LOCKABLE RTC_EXPORT Thread {
   // The caller must lock |crit_| before calling.
   // Returns true if there is such a message.
   bool PopSendMessageFromThread(const Thread* source, _SendMessage* msg);
-
-  void InvokeInternal(const Location& posted_from, MessageHandler* handler);
 
   std::list<_SendMessage> sendlist_;
 
