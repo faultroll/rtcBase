@@ -1,19 +1,2 @@
-目前只是通过简单的播放文件和采集进行测试。且延时没有动态获取和调整。
 
-只是针对回声消除模块简单的调用。
-
-后续进行完善。
-
-
-
-######################
-
-添加webrtc_module_audio_mixer模块.并实现简单的调用.
-
-######################2019-10-31
-
-添加webrtc_module_audio_conference_mixer模块，并实现简单调用
-
-######################2019-11-1
-
-添加webrtc noise_suppression的测试代码.
+based on https://gitlab.freedesktop.org/pulseaudio/webrtc-audio-processing v0.3.1, try adding mixer/(part of)neteq/..., update to m88, and make it more c like
