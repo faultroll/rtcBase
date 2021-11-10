@@ -15,15 +15,15 @@
 #include <map>
 #include <memory>
 
+#include "webrtc/base/criticalsection.h"
 #include "webrtc/modules/audio_conference_mixer/include/audio_conference_mixer.h"
 #include "webrtc/modules/audio_conference_mixer/source/memory_pool.h"
 #include "webrtc/modules/audio_conference_mixer/source/time_scheduler.h"
-#include "webrtc/modules/interface/module_common_types.h"
+#include "webrtc/modules/include/module_common_types.h"
 #include "webrtc/typedefs.h"
 
 namespace webrtc {
 class AudioProcessing;
-class CriticalSectionWrapper;
 
 struct FrameAndMuteInfo {
   FrameAndMuteInfo(AudioFrame* f, bool m) : frame(f), muted(m) {}
@@ -84,6 +84,13 @@ public:
         MixerParticipant* participant, bool mixable) override;
     bool AnonymousMixabilityStatus(
         const MixerParticipant& participant) const override;
+
+    // woogeen vad
+    int32_t RegisterMixerVadCallback(AudioMixerVadReceiver *vadReceiver,
+                                        const uint32_t amountOf10MsBetweenCallbacks) override;
+    int32_t UnRegisterMixerVadCallback() override;
+
+    void SetMultipleInputs(bool enable) override;
 
 private:
     enum{DEFAULT_AUDIO_FRAME_POOLSIZE = 50};
@@ -148,8 +155,8 @@ private:
 
     bool LimitMixedAudio(AudioFrame* mixedAudio) const;
 
-    std::unique_ptr<CriticalSectionWrapper> _crit;
-    std::unique_ptr<CriticalSectionWrapper> _cbCrit;
+    rtc::CriticalSection _crit;
+    rtc::CriticalSection _cbCrit;
 
     int32_t _id;
 
@@ -186,6 +193,25 @@ private:
 
     // Used for inhibiting saturation in mixing.
     std::unique_ptr<AudioProcessing> _limiter;
+
+    // woogeen vad
+    enum {kMaximumVadParticipants = 1024};
+
+    void UpdateVadStatistics(AudioFrameList* mixList);
+
+    bool _vadEnabled;
+    AudioMixerVadReceiver* _vadReceiver;
+    uint32_t _amountOf10MsBetweenVadCallbacks;
+
+    uint32_t _amountOf10MsAll;
+    uint32_t _amountOf10MsRemainder;
+    std::map<int32_t, int64_t> _vadParticipantEnergyList;
+
+    std::map<int32_t, std::unique_ptr<AudioProcessing>> _apms;
+
+    std::vector<ParticipantVadStatistics> _vadStatistics;
+
+    bool _supportMultipleInputs;
 };
 }  // namespace webrtc
 

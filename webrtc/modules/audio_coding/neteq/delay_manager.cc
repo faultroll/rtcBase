@@ -18,8 +18,8 @@
 #include "webrtc/base/safe_conversions.h"
 #include "webrtc/common_audio/signal_processing/include/signal_processing_library.h"
 #include "webrtc/modules/audio_coding/neteq/delay_peak_detector.h"
-#include "webrtc/modules/interface/module_common_types.h"
-#include "webrtc/system_wrappers/include/logging.h"
+#include "webrtc/modules/include/module_common_types.h"
+#include "webrtc/base/logging.h"
 #include "webrtc/modules/audio_coding/neteq/histogram.h"
 
 // (liuguangyuan) std::clamp not usable in c++11 (need c++17)
@@ -132,7 +132,7 @@ DelayManager::DelayManager(size_t max_packets_in_buffer,
                            HistogramMode histogram_mode,
                            DelayPeakDetector* peak_detector,
                            const TickTimer* tick_timer,
-                           std::unique_ptr<neteq::Histogram> histogram)
+                           std::unique_ptr<Histogram> histogram)
     : first_packet_received_(false),
       max_packets_in_buffer_(max_packets_in_buffer),
       histogram_(std::move(histogram)),
@@ -164,19 +164,19 @@ std::unique_ptr<DelayManager> DelayManager::Create(
     DelayPeakDetector* peak_detector,
     const TickTimer* tick_timer) {
   int quantile;
-  std::unique_ptr<neteq::Histogram> histogram;
+  std::unique_ptr<Histogram> histogram;
   HistogramMode mode;
   /* auto delay_histogram_config = GetDelayHistogramConfig();
   if (delay_histogram_config) {
     DelayHistogramConfig config = delay_histogram_config.value();
     quantile = config.quantile;
     histogram =
-        std::unique_ptr<neteq::Histogram>(new neteq::Histogram(kDelayBuckets, config.forget_factor));
+        std::unique_ptr<Histogram>(new Histogram(kDelayBuckets, config.forget_factor));
     mode = RELATIVE_ARRIVAL_DELAY;
   } else */ {
     quantile = /* GetForcedLimitProbability().value_or */(kLimitProbability);
     histogram = 
-        std::unique_ptr<neteq::Histogram>(new neteq::Histogram(kMaxIat + 1, kIatFactor));
+        std::unique_ptr<Histogram>(new Histogram(kMaxIat + 1, kIatFactor));
     mode = INTER_ARRIVAL_TIME;
   }
   return std::unique_ptr<DelayManager>(new DelayManager(

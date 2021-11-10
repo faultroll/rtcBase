@@ -12,7 +12,6 @@
 #define WEBRTC_MODULES_AUDIO_CONFERENCE_MIXER_SOURCE_MEMORY_POOL_WINDOWS_H_
 
 #include <assert.h>
-#include <winsock2.h>
 #include <windows.h>
 
 #include "webrtc/system_wrappers/include/aligned_malloc.h"

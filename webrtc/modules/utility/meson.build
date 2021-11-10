@@ -1,13 +1,13 @@
 # utility_headers = [
-#   'interface/audio_frame_operations.h',
+#   'include/audio_frame_operations.h',
 # ]
 
 # install_headers(utility_headers,
-#     subdir: 'webrtc_audio/webrtc/modules/interface'
+#     subdir: 'webrtc_audio/webrtc/modules/include'
 # )
 
 utility_sources = [
-  'interface/audio_frame_operations.cc',
+  'include/audio_frame_operations.cc',
 ]
 
 # libutility = static_library('utility',

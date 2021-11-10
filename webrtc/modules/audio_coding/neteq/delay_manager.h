@@ -40,7 +40,7 @@ class DelayManager {
                HistogramMode histogram_mode,
                DelayPeakDetector* peak_detector,
                const TickTimer* tick_timer,
-               std::unique_ptr<neteq::Histogram> histogram);
+               std::unique_ptr<Histogram> histogram);
 
   // Create a DelayManager object. Notify the delay manager that the packet
   // buffer can hold no more than |max_packets_in_buffer| packets (i.e., this
@@ -162,7 +162,7 @@ class DelayManager {
 
   bool first_packet_received_;
   const size_t max_packets_in_buffer_;  // Capacity of the packet buffer.
-  std::unique_ptr<neteq::Histogram> histogram_;
+  std::unique_ptr<Histogram> histogram_;
   const int histogram_quantile_;
   const HistogramMode histogram_mode_;
   const TickTimer* tick_timer_;

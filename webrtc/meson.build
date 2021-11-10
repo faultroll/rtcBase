@@ -1,9 +1,9 @@
 webrtc_sources = [
-  'common_types.cc'
+  # 'common_types.cc'
 ]
 
 webrtc_headers = [
-  'common.h',
+  # 'common.h',
   'common_types.h',
   'typedefs.h',
 ]

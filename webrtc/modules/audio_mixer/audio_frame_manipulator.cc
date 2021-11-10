@@ -8,10 +8,10 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
-#include "webrtc/modules/utility/interface/audio_frame_operations.h"
+#include "webrtc/modules/utility/include/audio_frame_operations.h"
 #include "webrtc/base/checks.h"
 #include "webrtc/modules/audio_mixer/audio_frame_manipulator.h"
-#include "webrtc/modules/interface/module_common_types.h"
+#include "webrtc/modules/include/module_common_types.h"
 
 namespace webrtc {
 

@@ -8,6 +8,9 @@ base_sources = [
   'thread_checker_impl.cc',
   'race_checker.cc',
   'timeutils.cc',
+  'optional.cc',
+  'logging.cc',
+  'stringencode.cc',
 ]
 
 base_headers = [
@@ -15,12 +18,14 @@ base_headers = [
   'checks.h',
   'constructormagic.h',
   'basictypes.h',
-  'maybe.h',
   'platform_file.h',
   'refcount.h',
   'refcountedobject.h',
   'scoped_ref_ptr.h',
   'race_checker.h',
+  'optional.h',
+  'sanitizer.h',
+  'logging.h',
 ]
 
 install_headers(base_headers,

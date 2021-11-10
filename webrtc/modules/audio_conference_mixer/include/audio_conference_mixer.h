@@ -12,8 +12,8 @@
 #define WEBRTC_MODULES_AUDIO_CONFERENCE_MIXER_INCLUDE_AUDIO_CONFERENCE_MIXER_H_
 
 #include "webrtc/modules/audio_conference_mixer/include/audio_conference_mixer_defines.h"
-#include "webrtc/modules/interface/module.h"
-#include "webrtc/modules/interface/module_common_types.h"
+#include "webrtc/modules/include/module.h"
+#include "webrtc/modules/include/module_common_types.h"
 
 namespace webrtc {
 class AudioMixerOutputReceiver;
@@ -68,6 +68,13 @@ public:
     // may still choose to mix at a higher samling frequency to avoid
     // downsampling of audio contributing to the mixed audio.
     virtual int32_t SetMinimumMixingFrequency(Frequency freq) = 0;
+
+    // woogeen vad
+    virtual int32_t RegisterMixerVadCallback(AudioMixerVadReceiver *vadReceiver,
+                                        const uint32_t amountOf10MsBetweenCallbacks) = 0;
+    virtual int32_t UnRegisterMixerVadCallback() = 0;
+
+    virtual void SetMultipleInputs(bool enable) = 0;
 
 protected:
     AudioConferenceMixer() {}

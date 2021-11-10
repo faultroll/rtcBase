@@ -17,7 +17,7 @@
 #include "webrtc/base/safe_conversions.h"
 
 namespace webrtc {
-namespace neteq {
+// namespace neteq {
 
 Histogram::Histogram(size_t num_buckets, int forget_factor)
     : buckets_(num_buckets, 0),
@@ -173,5 +173,5 @@ std::vector<int> Histogram::ScaleBuckets(const std::vector<int>& buckets,
   return new_histogram;
 }
 
-}  // namespace neteq
+// }  // namespace neteq
 }  // namespace webrtc

@@ -1,6 +1,6 @@
 
 subdir('utility')
-subdir('interface')
+subdir('include')
 subdir('audio_coding')
 subdir('audio_processing')
 subdir('audio_mixer')

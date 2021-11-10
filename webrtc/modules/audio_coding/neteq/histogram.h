@@ -16,7 +16,7 @@
 #include <vector>
 
 namespace webrtc {
-namespace neteq {
+// namespace neteq {
 
 class Histogram {
  public:
@@ -57,7 +57,7 @@ class Histogram {
   const int base_forget_factor_;
 };
 
-}  // namespace neteq
+// }  // namespace neteq
 }  // namespace webrtc
 
 #endif  // MODULES_AUDIO_CODING_NETEQ_HISTOGRAM_H_

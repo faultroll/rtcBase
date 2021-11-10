@@ -11,11 +11,11 @@
 #ifndef WEBRTC_COMMON_AUDIO_INCLUDE_AUDIO_UTIL_H_
 #define WEBRTC_COMMON_AUDIO_INCLUDE_AUDIO_UTIL_H_
 
+#include <algorithm>
 #include <limits>
 #include <cstring>
 
 #include "webrtc/base/checks.h"
-#include "webrtc/base/scoped_ptr.h"
 #include "webrtc/typedefs.h"
 
 namespace webrtc {
@@ -87,11 +87,11 @@ void CopyAudioIfNeeded(const T* const* src,
 template <typename T>
 void Deinterleave(const T* interleaved,
                   size_t samples_per_channel,
-                  int num_channels,
+                  size_t num_channels,
                   T* const* deinterleaved) {
-  for (int i = 0; i < num_channels; ++i) {
+  for (size_t i = 0; i < num_channels; ++i) {
     T* channel = deinterleaved[i];
-    int interleaved_idx = i;
+    size_t interleaved_idx = i;
     for (size_t j = 0; j < samples_per_channel; ++j) {
       channel[j] = interleaved[interleaved_idx];
       interleaved_idx += num_channels;
@@ -105,11 +105,11 @@ void Deinterleave(const T* interleaved,
 template <typename T>
 void Interleave(const T* const* deinterleaved,
                 size_t samples_per_channel,
-                int num_channels,
+                size_t num_channels,
                 T* interleaved) {
-  for (int i = 0; i < num_channels; ++i) {
+  for (size_t i = 0; i < num_channels; ++i) {
     const T* channel = deinterleaved[i];
-    int interleaved_idx = i;
+    size_t interleaved_idx = i;
     for (size_t j = 0; j < samples_per_channel; ++j) {
       interleaved[interleaved_idx] = channel[j];
       interleaved_idx += num_channels;
@@ -155,7 +155,7 @@ void DownmixInterleavedToMonoImpl(const T* interleaved,
                                   int num_channels,
                                   T* deinterleaved) {
   RTC_DCHECK_GT(num_channels, 0);
-  RTC_DCHECK_GT(num_frames, 0u);
+  RTC_DCHECK_GT(num_frames, 0);
 
   const T* const end = interleaved + num_frames * num_channels;
 
