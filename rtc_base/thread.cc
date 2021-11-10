@@ -14,7 +14,7 @@
 #include "rtc_base/null_socket_server.h"
 #include "rtc_base/platform_thread.h"
 #include "rtc_base/time_utils.h"
-#include "typedefs.h"  // NOLINT(build/include)
+#include "rtc_base/system/compile_magic.h"  // NOLINT(build/include)
 
 namespace rtc {
 
@@ -68,7 +68,7 @@ ThreadManager* ThreadManager::Instance() {
 
 ThreadManager::~ThreadManager() {
   // By above RTC_DEFINE_STATIC_LOCAL.
-  rtc_TssDelete(key_);
+  TssDelete(key_);
   RTC_NOTREACHED() /* << "ThreadManager should never be destructed." */;
 }
 
@@ -168,14 +168,14 @@ Thread* Thread::Current() {
 }
 
 ThreadManager::ThreadManager()
-    : key_(rtc_TssCreate()), main_thread_ref_(rtc_ThrdCurrent()) {}
+    : key_(TssCreate()), main_thread_ref_(ThrdCurrent()) {}
 
 Thread* ThreadManager::CurrentThread() {
-  return static_cast<Thread*>(rtc_TssGet(key_));
+  return static_cast<Thread*>(TssGet(key_));
 }
 
 void ThreadManager::SetCurrentThreadInternal(Thread* thread) {
-  rtc_TssSet(key_, thread);
+  TssSet(key_, thread);
 }
 
 void ThreadManager::SetCurrentThread(Thread* thread) {
@@ -220,7 +220,7 @@ void ThreadManager::UnwrapCurrentThread() {
 }
 
 bool ThreadManager::IsMainThread() {
-  return rtc_ThrdEqual(rtc_ThrdCurrent(), main_thread_ref_);
+  return ThrdEqual(ThrdCurrent(), main_thread_ref_);
 }
 
 Thread::Thread(SocketServer* ss) : Thread(ss, /*do_init=*/true) {}
@@ -602,7 +602,7 @@ bool Thread::SleepMs(int milliseconds) {
     Post(RTC_FROM_HERE, &queued_task_handler_, QueuedTaskHandler::kSleepMs, smsg);
     return true;
   }
-  return rtc_ThrdSleep(milliseconds);
+  return ThrdSleep(milliseconds);
 #endif // 0
 }
 
@@ -734,7 +734,7 @@ void* Thread::PreRun(void* pv) {
 void Thread::PreRun(void* pv) {
   Thread* thread = static_cast<Thread*>(pv);
   ThreadManager::Instance()->SetCurrentThread(thread);
-  /* rtc_ThrdSetName(thread->name_.c_str()); */ // set in platform_thread
+  /* ThrdSetName(thread->name_.c_str()); */ // set in platform_thread
   thread->Run();
 
   ThreadManager::Instance()->SetCurrentThread(nullptr);

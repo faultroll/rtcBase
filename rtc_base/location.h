@@ -14,7 +14,7 @@
 #include <string>
 
 // #include "rtc_base/stringize_macros.h"
-#include "typedefs.h"
+#include "rtc_base/system/compile_magic.h"
 
 namespace rtc {
 

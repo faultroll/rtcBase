@@ -9,102 +9,42 @@
  */
 
 #include "rtc_base/time_utils.h"
-
-#if defined(WEBRTC_POSIX)
-#include <sys/time.h>
-#elif defined(WEBRTC_WIN)
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif // WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#include <mmsystem.h>
-#include <sys/timeb.h>
-#endif
-
 // #include "rtc_base/checks.h"
 
-// namespace rtc {
+namespace rtc {
 
-int64_t SystemTimeNanos() {
-  int64_t ticks;
-#if defined(WEBRTC_POSIX)
-  struct timespec ts;
-  Timespec(&ts);
-  ticks = (static_cast<int64_t>(ts.tv_sec) * kNumNanosecsPerSec +
-           static_cast<int64_t>(ts.tv_nsec));
-#elif defined(WEBRTC_WIN)
-  static volatile LONG last_timegettime = 0;
-  static volatile int64_t num_wrap_timegettime = 0;
-  volatile LONG* last_timegettime_ptr = &last_timegettime;
-  DWORD now = timeGetTime();
-  // Atomically update the last gotten time
-  DWORD old = InterlockedExchange(last_timegettime_ptr, now);
-  if (now < old) {
-    // If now is earlier than old, there may have been a race between threads.
-    // 0x0fffffff ~3.1 days, the code will not take that long to execute
-    // so it must have been a wrap around.
-    if (old > 0xf0000000 && now < 0x0fffffff) {
-      num_wrap_timegettime++;
-    }
-  }
-  ticks = now + (num_wrap_timegettime << 32);
-  // TODO(deadbeef): Calculate with nanosecond precision. Otherwise, we're
-  // just wasting a multiply and divide when doing Time() on Windows.
-  ticks = ticks * kNumNanosecsPerMillisec;
-#endif
-  return ticks;
-}
+/* int64_t SystemTimeNanos() {
+  return SystemTimeMillis() * kNumNanosecsPerMillisec;
+} */
 
 int64_t SystemTimeMillis() {
-  return static_cast<int64_t>(SystemTimeNanos() / kNumNanosecsPerMillisec);
+  struct timespec ts;
+  timespec_get_systime(&ts);
+  return timespec_to_millisec(&ts);
 }
 
 int64_t UTCTimeMillis() {
-#if defined(WEBRTC_POSIX)
-#if 0
-  struct timeval time;
-  gettimeofday(&time, nullptr);
-  // Convert from second (1.0) and microsecond (1e-6).
-  return (static_cast<int64_t>(time.tv_sec) * kNumMillisecsPerSec +
-          static_cast<int64_t>(time.tv_usec) / kNumMicrosecsPerMillisec);
-#else // 0
   struct timespec ts;
-  clock_gettime(CLOCK_REALTIME, &ts);
-  return TimespecToTime(&ts);
-#endif // 0
-#elif defined(WEBRTC_WIN)
-  struct _timeb time;
-  _ftime(&time);
-  // Convert from second (1.0) and milliseconds (1e-3).
-  return (static_cast<int64_t>(time.time) * kNumMillisecsPerSec +
-          static_cast<int64_t>(time.millitm));
-#endif
+  timespec_get_utctime(&ts);
+  return timespec_to_millisec(&ts);
+}
+
+int64_t TimeMillis() {
+  return SystemTimeMillis();
 }
 
 int64_t TimeNanos() {
-  return SystemTimeNanos();
-}
-
-/* uint32_t Time32() {
-  return static_cast<uint32_t>(TimeNanos() / kNumNanosecsPerMillisec);
-} */
-
-int64_t TimeMillis() {
-  return TimeNanos() / kNumNanosecsPerMillisec;
+  return TimeMillis() * kNumNanosecsPerMillisec;
 }
 
 int64_t TimeMicros() {
-  return TimeNanos() / kNumNanosecsPerMicrosec;
+  return TimeMillis() * kNumMicrosecsPerMillisec;
 }
 
 int64_t TimeAfter(int64_t elapsed) {
   // RTC_DCHECK_GE(elapsed, 0);
   return TimeMillis() + elapsed;
 }
-
-/* int32_t TimeDiff32(uint32_t later, uint32_t earlier) {
-  return later - earlier;
-} */
 
 int64_t TimeDiff(int64_t later, int64_t earlier) {
   return later - earlier;
@@ -177,40 +117,26 @@ int64_t TmToTime(const struct tm *tm) {
   return second * kNumMillisecsPerSec;
 }
 
-void Timespec(struct timespec *ts) { // CLOCK_MONOTONIC
-#if defined(WEBRTC_POSIX)
-  // TODO(deadbeef): Do we need to handle the case when CLOCK_MONOTONIC is not
-  // supported?
-  clock_gettime(CLOCK_MONOTONIC, ts);
-#elif defined(WEBRTC_WIN)
-  TimeToTimespec(ts, SystemTimeMillis());
-#endif
+void Timespec(struct timespec *ts) {
+  timespec_get_systime(ts); // timespec_get(ts, TIME_UTC);
 }
 
 void TimespecNormalize(struct timespec *ts) {
-  if (ts->tv_nsec >= kNumNanosecsPerSec) {
-    ts->tv_sec  += ts->tv_nsec / kNumNanosecsPerSec;
-    ts->tv_nsec = ts->tv_nsec % kNumNanosecsPerSec;
-    /* ts->tv_sec++;
-    ts->tv_nsec -= kNumNanosecsPerSec; */
-  }
+  timespec_normalize(ts);
 }
 
 void TimespecAfter(struct timespec *ts, struct timespec *elapsed) {
   ts->tv_sec  += elapsed->tv_sec;
   ts->tv_nsec += elapsed->tv_nsec;
-  TimespecNormalize(ts);
+  timespec_normalize(ts);
 }
 
 void TimeToTimespec(struct timespec *ts, int64_t milliseconds) {
-  ts->tv_sec  = milliseconds / kNumMillisecsPerSec;
-  ts->tv_nsec = (milliseconds % kNumMillisecsPerSec) * kNumNanosecsPerMillisec;
-  TimespecNormalize(ts);
+  timespec_from_millisec(ts, milliseconds);
 }
 
 int64_t TimespecToTime(struct timespec *ts) {
-  return (static_cast<int64_t>(ts->tv_sec) * kNumMillisecsPerSec +
-          static_cast<int64_t>(ts->tv_nsec) / kNumNanosecsPerMillisec);
+  return timespec_to_millisec(ts);
 }
 
-// } // namespace rtc
+} // namespace rtc

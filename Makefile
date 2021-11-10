@@ -1,5 +1,5 @@
 
-prfx   ?= 
+prfx   ?= # arm-himix200-linux-
 cxx    := $(prfx)g++
 ar     := $(prfx)ar
 ranlib := $(prfx)ranlib
@@ -7,11 +7,13 @@ strip  := $(prfx)strip
 
 # c version will be rtcthrd_c
 name    := rtcthrd
-srcs    := $(wildcard rtc_base/*.cc)
+srcs    := $(wildcard rtc_base/*.cc) \
+           $(wildcard rtc_base/synchronization/*.cc)
 objs    := $(patsubst %.cc,%.o,$(filter %.cc, $(srcs)))
 deps    := $(patsubst %.o,%.d,$(objs))
 libs    := -lpthread
-cflags  = -I. -DNDEBUG -DWEBRTC_POSIX # -DWEBRTC_WIN
+cflags   = -I. -DWEBRTC_POSIX # -DWEBRTC_WIN
+cflags  += -g # -DNDEBUG
 ldflags := 
 # for reproducible build
 objs    := $(sort $(objs))

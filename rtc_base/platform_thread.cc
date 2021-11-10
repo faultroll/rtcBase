@@ -30,10 +30,12 @@ PlatformThread::PlatformThread(ThreadRunFunction func,
     : run_function_(func), priority_(priority), obj_(obj) {
   RTC_DCHECK(func);
   SetName(name, this);  // default name
+  spawned_thread_checker_.Detach();
 }
 
 PlatformThread::~PlatformThread() {
-  RTC_DCHECK(!thread_);
+  RTC_DCHECK(thread_checker_.IsCurrent());
+  RTC_DCHECK(!IsRunning());
 }
 
 bool PlatformThread::SetName(const std::string& name, const void* obj) {
@@ -59,26 +61,29 @@ int PlatformThread::StartThread(void* param) {
 }
 
 void PlatformThread::Start() {
-  RTC_DCHECK(!thread_) /* << "Thread already started?" */;
+  RTC_DCHECK(thread_checker_.IsCurrent());
+  RTC_DCHECK(!IsRunning()) /* << "Thread already started?" */;
 
 #if defined(WEBRTC_WIN)
   stop_ = false;
 #endif
 
-  RTC_CHECK_EQ(kThrdSuccess, rtc_ThrdCreate(&thread_, &StartThread, this));
+  RTC_CHECK_EQ(kThrdSuccess, ThrdCreate(&thread_, &StartThread, this));
 
-  RTC_CHECK(thread_) /* << "CreateThread failed" */;
+  RTC_CHECK(thread_ != kNullThrd) /* << "CreateThread failed" */;
 }
 
 bool PlatformThread::IsRunning() const {
-  return thread_ != 0;
+  RTC_DCHECK(thread_checker_.IsCurrent());
+  return thread_ != kNullThrd;
 }
 
 Thrd PlatformThread::GetThreadRef() const {
-  return rtc_ThrdCurrent();
+  return ThrdCurrent();
 }
 
 void PlatformThread::Stop() {
+  RTC_DCHECK(thread_checker_.IsCurrent());
   if (!IsRunning())
     return;
 
@@ -93,7 +98,7 @@ void PlatformThread::Stop() {
 #endif
   }
 
-  RTC_CHECK_EQ(kThrdSuccess, rtc_ThrdJoin(thread_));
+  RTC_CHECK_EQ(kThrdSuccess, ThrdJoin(thread_));
 
 #if defined(WEBRTC_WIN)
   // Nothing
@@ -103,7 +108,8 @@ void PlatformThread::Stop() {
   }
 #endif
 
-  thread_ = 0;
+  thread_ = kNullThrd;
+  spawned_thread_checker_.Detach();
 }
 
 // TODO(tommi): Deprecate the loop behavior in PlatformThread.
@@ -114,10 +120,12 @@ void PlatformThread::Stop() {
 // All implementations will need to be aware of how the thread should be stopped
 // and encouraging a busy polling loop, can be costly in terms of power and cpu.
 void PlatformThread::Run() {
-  rtc_ThrdSetName(name_.c_str());
+  // Attach the worker thread checker to this thread.
+  RTC_DCHECK(spawned_thread_checker_.IsCurrent());
+  ThrdSetName(name_.c_str());
 
   if (run_function_) {
-    rtc_ThrdSetPrio(thread_, priority_);
+    ThrdSetPrio(thread_, priority_);
     run_function_(obj_);
     return;
   }
@@ -156,7 +164,7 @@ void PlatformThread::Run() {
 #endif
 
     // Alertable sleep to permit RaiseFlag to run and update |stop_|.
-    rtc_ThrdYield();
+    ThrdYield();
 
 #if defined(WEBRTC_WIN)
   } while (!stop_);
@@ -170,18 +178,22 @@ bool PlatformThread::SetPriority(ThrdPrio priority) {
   if (run_function_) {
     // The non-deprecated way of how this function gets called, is that it must
     // be called on the worker thread itself.
+    RTC_DCHECK(!thread_checker_.IsCurrent());
+    RTC_DCHECK(spawned_thread_checker_.IsCurrent());
   } else {
     // In the case of deprecated use of this method, it must be called on the
     // same thread as the PlatformThread object is constructed on.
+    RTC_DCHECK(thread_checker_.IsCurrent());
     RTC_DCHECK(IsRunning());
   }
 #endif
 
-  return rtc_ThrdSetPrio(thread_, priority);
+  return ThrdSetPrio(thread_, priority);
 }
 
 #if defined(WEBRTC_WIN)
 bool PlatformThread::QueueAPC(PAPCFUNC function, ULONG_PTR data) {
+  RTC_DCHECK(thread_checker_.IsCurrent());
   RTC_DCHECK(IsRunning());
 
   return QueueUserAPC(function, thread_, data) != FALSE;

@@ -11,8 +11,8 @@
 // This file contains platform-specific typedefs and defines.
 // Much of it is derived from Chromium's build/build_config.h.
 
-#ifndef TYPEDEFS_H_
-#define TYPEDEFS_H_
+#ifndef RTC_BASE_SYSTEM_COMPILE_MAGIC_H_
+#define RTC_BASE_SYSTEM_COMPILE_MAGIC_H_
 
 // From rtc_base/checks.h
 #ifndef RTC_NORETURN
@@ -23,10 +23,10 @@
 #define RTC_NORETURN __attribute__ ((__noreturn__))
 #else
 #define RTC_NORETURN
-#endif
+#endif // defined(WEBRTC_WIN)
 #endif // RTC_NORETURN
 
-// Add, used in rtc_base/critical_section.h
+// Added, used in rtc_base/critical_section.h
 #ifndef RTC_CHECKRETURN
 #if defined(WEBRTC_WIN)
 #define RTC_CHECKRETURN _Check_return_
@@ -34,7 +34,7 @@
 #define RTC_CHECKRETURN __attribute__ ((__warn_unused_result__))
 #else
 #define RTC_CHECKRETURN
-#endif
+#endif // defined(WEBRTC_WIN)
 #endif // RTC_CHECKRETURN
 
 // From rtc_base/system/unused.h
@@ -53,22 +53,14 @@
 // built or used as a shared library.
 // When WebRTC is built as a static library the RTC_EXPORT macro expands to
 // nothing.
-/* // #ifdef WEBRTC_ENABLE_SYMBOL_EXPORT
-#if defined(WEBRTC_WIN)
-#ifdef WEBRTC_LIBRARY_IMPL
-#define RTC_EXPORT __declspec(dllexport)
-#else
-#define RTC_EXPORT __declspec(dllimport)
-#endif
-#elif defined(WEBRTC_POSIX)
-#if __has_attribute(visibility) && defined(WEBRTC_LIBRARY_IMPL)
-#define RTC_EXPORT __attribute__((visibility("default")))
-#endif
-#endif // WEBRTC_WIN
-// #endif // WEBRTC_ENABLE_SYMBOL_EXPORT */
-// the |else| situation
 #ifndef RTC_EXPORT
+#if defined(WEBRTC_WIN)
+#define RTC_EXPORT __declspec(dllexport)
+#elif defined(WEBRTC_POSIX)
+#define RTC_EXPORT __attribute__((visibility("default")))
+#else
 #define RTC_EXPORT
+#endif // defined(WEBRTC_WIN)
 #endif // RTC_EXPORT
 
-#endif  // TYPEDEFS_H_
+#endif  // RTC_BASE_SYSTEM_COMPILE_MAGIC_H_

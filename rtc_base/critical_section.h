@@ -16,7 +16,7 @@
 #include "rtc_base/constructor_magic.h"
 #include "rtc_base/platform_thread_types.h"
 #include "rtc_base/thread_annotations.h"
-#include "typedefs.h"  // NOLINT(build/include)
+#include "rtc_base/system/compile_magic.h"  // NOLINT(build/include)
 
 namespace rtc {
 

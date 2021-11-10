@@ -11,75 +11,43 @@
 #ifndef RTC_BASE_ATOMIC_OPS_H_
 #define RTC_BASE_ATOMIC_OPS_H_
 
-// TODO Mimic c11 <stdatomic.h>
-
+/**
+ * std::unique_ptr is in <memory> which includes <shared_ptr_atomic.h> 
+ * however, it only implements the atomic_flag and cannot use <stdatomics.h>
+ * 
+ */
 #if defined(WEBRTC_WIN)
-// Include winsock2.h before including <windows.h> to maintain consistency with
-// win32.h.  We can't include win32.h directly here since it pulls in
-// headers such as basictypes.h which causes problems in Chromium where webrtc
-// exists as two separate projects, webrtc and libjingle.
-#include <winsock2.h>
-#include <windows.h>
-#endif  // defined(WEBRTC_WIN)
+    #define _USE_WIN
+#elif defined(WEBRTC_POSIX)
+    #define _USE_POSIX
+    #ifndef _POSIX_C_SOURCE
+        #define _POSIX_C_SOURCE 200809L
+    #endif /* _POSIX_C_SOURCE */
+#else
+    #define _USE_NONE
+#endif // defined(WEBRTC_WIN)
+#include "rtc_base/c11runtime/catomic.h"
 
 namespace rtc {
 class AtomicOps {
  public:
-#if defined(WEBRTC_WIN)
+  // reinterpret_cast<volatile LONG*>(i)
   // Assumes sizeof(int) == sizeof(LONG), which it is on Win32 and Win64.
   static int Increment(volatile int* i) {
-    return ::InterlockedIncrement(reinterpret_cast<volatile LONG*>(i));
+    return ATOMIC_VAR_FAA(i, 1);
   }
   static int Decrement(volatile int* i) {
-    return ::InterlockedDecrement(reinterpret_cast<volatile LONG*>(i));
+    return ATOMIC_VAR_FAA(i, -1);
   }
   static int AcquireLoad(volatile const int* i) {
-    return *i;
+    return ATOMIC_VAR_LOAD(i);
   }
   static void ReleaseStore(volatile int* i, int value) {
-    *i = value;
+    ATOMIC_VAR_STOR(i, value);
   }
-  static int CompareAndSwap(volatile int* i, int old_value, int new_value) {
-    return ::InterlockedCompareExchange(reinterpret_cast<volatile LONG*>(i),
-                                        new_value,
-                                        old_value);
+  static bool CompareAndSwap(volatile int* i, int old_value, int new_value) {
+    return ATOMIC_VAR_CAS(i, old_value, new_value);
   }
-  // Pointer variants.
-  template <typename T>
-  static T* AcquireLoadPtr(T* volatile* ptr) {
-    return *ptr;
-  }
-  template <typename T>
-  static T* CompareAndSwapPtr(T* volatile* ptr, T* old_value, T* new_value) {
-    return static_cast<T*>(::InterlockedCompareExchangePointer(
-        reinterpret_cast<PVOID volatile*>(ptr), new_value, old_value));
-  }
-#else
-  static int Increment(volatile int* i) {
-    return __sync_add_and_fetch(i, 1);
-  }
-  static int Decrement(volatile int* i) {
-    return __sync_sub_and_fetch(i, 1);
-  }
-  static int AcquireLoad(volatile const int* i) {
-    return __atomic_load_n(i, __ATOMIC_ACQUIRE);
-  }
-  static void ReleaseStore(volatile int* i, int value) {
-    __atomic_store_n(i, value, __ATOMIC_RELEASE);
-  }
-  static int CompareAndSwap(volatile int* i, int old_value, int new_value) {
-    return __sync_val_compare_and_swap(i, old_value, new_value);
-  }
-  // Pointer variants.
-  template <typename T>
-  static T* AcquireLoadPtr(T* volatile* ptr) {
-    return __atomic_load_n(ptr, __ATOMIC_ACQUIRE);
-  }
-  template <typename T>
-  static T* CompareAndSwapPtr(T* volatile* ptr, T* old_value, T* new_value) {
-    return __sync_val_compare_and_swap(ptr, old_value, new_value);
-  }
-#endif
 };
 
 }  // namespace rtc

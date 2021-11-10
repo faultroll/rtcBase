@@ -11,21 +11,31 @@
 #ifndef RTC_BASE_TIME_UTILS_H_
 #define RTC_BASE_TIME_UTILS_H_
 
-#include <stdint.h>
-#include <time.h>
+/**
+ *  |timespec_get| re-declare, so we use <time.h> here
+ * 
+ **/
+#if defined(WEBRTC_WIN)
+    #define _USE_WIN
+#elif defined(WEBRTC_POSIX)
+    #define _USE_STD
+    // #define _USE_POSIX
+    // #ifndef _POSIX_C_SOURCE
+    //     #define _POSIX_C_SOURCE 200809L
+    // #endif /* _POSIX_C_SOURCE */
+#else
+    #define _USE_NONE
+#endif // defined(WEBRTC_WIN)
+#include "rtc_base/c11runtime/ctime.h"
 
-// namespace rtc {
+namespace rtc {
 
-static const int64_t kNumMillisecsPerSec = INT64_C(1000);
-static const int64_t kNumMicrosecsPerSec = INT64_C(1000000);
-static const int64_t kNumNanosecsPerSec = INT64_C(1000000000);
-
-static const int64_t kNumMicrosecsPerMillisec =
-    kNumMicrosecsPerSec / kNumMillisecsPerSec;
-static const int64_t kNumNanosecsPerMillisec =
-    kNumNanosecsPerSec / kNumMillisecsPerSec;
-static const int64_t kNumNanosecsPerMicrosec =
-    kNumNanosecsPerSec / kNumMicrosecsPerSec;
+static const int64_t kNumMillisecsPerSec = MS_PER_SEC;
+static const int64_t kNumMicrosecsPerSec = US_PER_SEC;
+static const int64_t kNumNanosecsPerSec  = NS_PER_SEC;
+static const int64_t kNumMicrosecsPerMillisec = US_PER_MS;
+static const int64_t kNumNanosecsPerMillisec  = NS_PER_MS;
+static const int64_t kNumNanosecsPerMicrosec  = NS_PER_US;
 
 // System time is |CLOCK_MONOTONIC|
 // Returns the actual system time, even if a clock is set for testing.
@@ -47,13 +57,10 @@ int64_t SystemTimeMillis();
 /* int64_t UTCTimeNanos(); */
 int64_t UTCTimeMillis();
 
-/* // Returns the current time in milliseconds in 32 bits.
-uint32_t Time32(); */
-
 // Returns the current time in milliseconds in 64 bits.
 int64_t TimeMillis();
-/* // Deprecated. Do not use this in any new code.
-inline int64_t Time() {
+// Deprecated. Do not use this in any new code.
+/* inline int64_t Time() {
   return TimeMillis();
 } */
 
@@ -70,7 +77,6 @@ int64_t TimeAfter(int64_t elapsed);
 // Number of milliseconds that would elapse between 'earlier' and 'later'
 // timestamps.  The value is negative if 'later' occurs before 'earlier'.
 int64_t TimeDiff(int64_t later, int64_t earlier);
-/* int32_t TimeDiff32(uint32_t later, uint32_t earlier); */
 
 // The number of milliseconds that have elapsed since 'earlier'.
 inline int64_t TimeSince(int64_t earlier) {
@@ -125,14 +131,6 @@ class IntervalRange {
 // is still 32 bits on many systems.
 int64_t TmToTime(const struct tm *tm);
 
-// timespec calc
-#if defined(WEBRTC_WIN)
-struct timespec {
-  time_t tv_sec;
-  long   tv_nsec;
-};
-#endif
-
 // Returns the current timespec
 void Timespec(struct timespec *ts);
 
@@ -148,6 +146,6 @@ void TimeToTimespec(struct timespec *ts, int64_t milliseconds);
 // Convert timespec to milliseconds
 int64_t TimespecToTime(struct timespec *ts);
 
-// }  // namespace rtc
+}  // namespace rtc
 
 #endif  // RTC_BASE_TIME_UTILS_H_

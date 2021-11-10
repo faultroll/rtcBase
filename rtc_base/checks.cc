@@ -11,6 +11,8 @@
 // Most of this was borrowed (with minor modifications) from V8's and Chromium's
 // src/base/logging.cc.
 
+#include "rtc_base/checks.h"
+
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
@@ -27,8 +29,6 @@
 #include <errno.h>
 #define LAST_SYSTEM_ERROR (errno)
 #endif  // WEBRTC_WIN
-
-#include "rtc_base/checks.h"
 
 #if defined(_MSC_VER)
 // Warning C4722: destructor never returns, potential memory leak.
@@ -57,7 +57,7 @@ void PrintError(const char* format, ...) {
 
 }  // namespace
 
-#if 1 // #if !defined(__cplusplus)
+#if 1 // !defined(__cplusplus) // C version won't declare this in header file
 // Like a stripped-down LogMessage from logging.h, except that it aborts.
 class FatalMessage {
  public:
@@ -103,9 +103,9 @@ void FatalMessage::Init(const char* file, int line) {
           << "# ";
 }
 
-#if 0 // #if defined(__cplusplus)
+#if 0 // defined(__cplusplus)
 // MSVC doesn't like complex extern templates and DLLs.
-#if !defined(COMPILER_MSVC)
+#if !defined(WEBRTC_WIN)
 // Explicit instantiations for commonly used comparisons.
 template std::string* MakeCheckOpString<int, int>(
     const int&, const int&, const char* names);
@@ -122,7 +122,9 @@ template std::string* MakeCheckOpString<std::string, std::string>(
 
 }  // namespace rtc
 
+#if 1 // !defined(__cplusplus)
 // Function to call from the C version of the RTC_CHECK and RTC_DCHECK macros.
 RTC_NORETURN void rtc_FatalMessage(const char* file, int line, const char* msg) {
   rtc::FatalMessage(file, line).stream() << msg;
 }
+#endif

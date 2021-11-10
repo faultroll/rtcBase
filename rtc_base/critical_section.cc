@@ -18,7 +18,7 @@
 namespace rtc {
 
 CriticalSection::CriticalSection() {
-  rtc_MtxInit(&mutex_);
+  MtxInit(&mutex_);
 
 #if RTC_DCHECK_IS_ON
   thread_ = 0;
@@ -27,16 +27,16 @@ CriticalSection::CriticalSection() {
 }
 
 CriticalSection::~CriticalSection() {
-  rtc_MtxDestroy(&mutex_);
+  MtxDestroy(&mutex_);
 }
 
 void CriticalSection::Enter() const RTC_EXCLUSIVE_LOCK_FUNCTION() {
-  rtc_MtxLock(&mutex_);
+  MtxLock(&mutex_);
 
 #if RTC_DCHECK_IS_ON
   if (!recursion_count_) {
     RTC_DCHECK(!thread_);
-    thread_ = rtc_ThrdCurrent();
+    thread_ = ThrdCurrent();
   } else {
     RTC_DCHECK(CurrentThreadIsOwner());
   }
@@ -45,13 +45,13 @@ void CriticalSection::Enter() const RTC_EXCLUSIVE_LOCK_FUNCTION() {
 }
 
 bool CriticalSection::TryEnter() const RTC_EXCLUSIVE_TRYLOCK_FUNCTION(true) {
-  if (rtc_MtxTryLock(&mutex_) != kThrdSuccess)
+  if (MtxTryLock(&mutex_) != kThrdSuccess)
     return false;
 
 #if RTC_DCHECK_IS_ON
   if (!recursion_count_) {
     RTC_DCHECK(!thread_);
-    thread_ = rtc_ThrdCurrent();
+    thread_ = ThrdCurrent();
   } else {
     RTC_DCHECK(CurrentThreadIsOwner());
   }
@@ -71,13 +71,13 @@ void CriticalSection::Leave() const RTC_UNLOCK_FUNCTION() {
     thread_ = 0;
 #endif  // RTC_DCHECK_IS_ON
 
-  rtc_MtxUnlock(&mutex_);
+  MtxUnlock(&mutex_);
 }
 
 bool CriticalSection::CurrentThreadIsOwner() const {
 
 #if RTC_DCHECK_IS_ON
-  return rtc_ThrdEqual(thread_, rtc_ThrdCurrent());
+  return ThrdEqual(thread_, ThrdCurrent());
 #else
   return true;
 #endif  // RTC_DCHECK_IS_ON
@@ -109,14 +109,14 @@ bool TryCritScope::locked() const {
 }
 
 void GlobalLock::Lock() {
-  while (AtomicOps::CompareAndSwap(&lock_acquired_, 0, 1)) {
-    rtc_ThrdYield();
+  while (!AtomicOps::CompareAndSwap(&lock_acquired_, 0, 1)) {
+    ThrdYield();
   }
 }
 
 void GlobalLock::Unlock() {
-  int old_value = AtomicOps::CompareAndSwap(&lock_acquired_, 1, 0);
-  RTC_DCHECK_EQ(1, old_value) /* << "Unlock called without calling Lock first" */;
+  bool success = AtomicOps::CompareAndSwap(&lock_acquired_, 1, 0);
+  RTC_DCHECK_EQ(true, success) /* << "Unlock called without calling Lock first" */;
 }
 
 GlobalLockScope::GlobalLockScope(GlobalLock* lock)

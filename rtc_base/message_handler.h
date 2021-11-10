@@ -14,7 +14,7 @@
 #include <utility>
 
 #include "rtc_base/constructor_magic.h"
-#include "typedefs.h"
+#include "rtc_base/system/compile_magic.h"
 
 namespace rtc {
 

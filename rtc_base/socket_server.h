@@ -13,7 +13,7 @@
 
 #include <memory>
 #include "rtc_base/socket_factory.h"
-#include "typedefs.h"  // NOLINT(build/include)
+#include "rtc_base/system/compile_magic.h"  // NOLINT(build/include)
 
 namespace rtc {
 
