@@ -1,12 +1,66 @@
 
-this project extract thread utils from webrtc m66, with my own understands
-- trying to make it more lightweight; more c like then cxx, remove as most cxx features(auto/functor/...) as I can, for embed use
-- trying to use thread after m85(but not directly use it, for *awful* absl deps); thread in webrtc is messagequeue+null_socketserver+platform_thread, before m85 the messagequeue does sooo much than it should; thread after m85 is using taskqueue and removes messagequeue(merges into thread), seems much better; but we don't need task_queue, because it's thread, *NOT* threadpool
-- trying to use platform_thread in thread; you can override run func in thread, so no need to use platform_thread, use thread instead
+## basic:
+- c11runtime // ` <catomic.h> <cthread.h> <ctime.h> for c11 features`
+- atomic_ops.h // `c11 <stdatomic.h> with other funcs`
+- checks.cc
+- checks.h // check macros
+- constructor_magic.h // class macros
+- critical_section.cc
+- critical_section.h // mutex locks ?
+- platform_thread_types.cc
+- platform_thread_types.h // `c11 <threads.h> with other funcs`
+- system // compile macros
+- thread_annotations.h // thread macros
+- time_utils.cc
+- time_utils.h // `c11 <time.h> timespec and millisec`
+- aligned_malloc.h // `c11 <stdlib.h> aligned_malloc`
 
-TODOs
-- add virtual_socketserver/signalthread to demo
-- windows version *NOT* tested (or even compiled)
+## rtcThread:
+- event.cc
+- event.h // semaphore
+- location.cc 
+- location.h // where message froms
+- message_handler.cc
+- message_handler.h // message handler interface
+- null_socket_server.cc
+- null_socket_server.h // default socket server for rtc::thread
+- platform_thread.cc
+- platform_thread.h // thread implement for rtc::thread
+- race_checker.cc
+- race_checker.h // race checker
+- socket_factory.h // socket server
+- socket_server.h // socket server
+- synchronization // sequence checker
+- thread.cc
+- thread.h // rtc::thread
+- thread_message.h // message interface
 
-m66: https://github.com/webrtc-uwp/webrtc
-m88: https://github.com/open-webrtc-toolkit/owt-deps-webrtc
+## rtcAudio:
+- arraysize.h
+- numerics // safe_xxx conversion/min_max/...
+- scoped_refptr.h // reference pointer, in api ver. m88
+- // ref_counted_object.h // same? as scoped_refptr? 
+- // ref_counter.h
+- // ref_count.h
+### rtcAudio from system_wrappers:
+- asm_defines.h // asm utils for signal processing
+- metrics.h // metric for histogram
+
+## rtcRtp:
+- arraysize.h
+- numerics
+- scoped_refptr.h
+- random.h // random
+- buffer.h // buffers, move out of rtc_base 
+- bit_buffer.cc
+- bit_buffer.h
+- // byte_buffer.cc
+- // byte_buffer.h
+- rate_statistics.cc // rate control, move out of rtc_base
+- rate_statistics.h
+- rate_limiter.cc
+- rate_limiter.h
+### rtcRtp from system_wrappers:
+- ntp_time.h // timestamp utils
+- clock.h
+- timestamp_extrapolator.h
