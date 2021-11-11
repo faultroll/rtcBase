@@ -63,4 +63,16 @@
 #endif // defined(WEBRTC_WIN)
 #endif // RTC_EXPORT
 
+// From rtc_base/compile_assert_c.h
+// Use this macro to verify at compile time that certain restrictions are met.
+// The argument is the boolean expression to evaluate.
+// Example:
+//   RTC_COMPILE_ASSERT(sizeof(foo) < 128);
+// Note: In C++, use static_assert instead!
+#define RTC_COMPILE_ASSERT(expression) \
+  switch (0) {                         \
+    case 0:                            \
+    case expression:;                  \
+  }
+
 #endif  // RTC_BASE_SYSTEM_COMPILE_MAGIC_H_
