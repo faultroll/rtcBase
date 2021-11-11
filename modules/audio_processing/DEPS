@@ -1,0 +1,15 @@
+include_rules = [
+  "+modules/utility/include/audio_frame_operations.h",
+  "+base",
+  "+common_audio",
+  "+system_wrappers",
+]
+
+specific_include_rules = {
+  ".*test\.cc": [
+    "+tools",
+    # Android platform build has different paths.
+    "+gtest",
+    "+external/webrtc",
+  ],
+}

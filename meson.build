@@ -124,7 +124,38 @@ audio_conf.set('NDEBUG', 1)
 
 configure_file(output : 'config.h', configuration : audio_conf)
 
-subdir('webrtc')
+webrtc_sources = [
+  # 'common_types.cc'
+]
+
+webrtc_headers = [
+  # 'common.h',
+  'common_types.h',
+  'typedefs.h',
+]
+
+install_headers(webrtc_headers,
+    subdir: 'webrtc_audio/webrtc'
+)
+
+# libwebrtc = static_library('webrtc',
+#     webrtc_sources,
+#     dependencies: common_deps,
+#     include_directories: webrtc_inc,
+#     c_args: common_cflags,
+#     cpp_args: common_cxxflags
+# )
+
+webrtc_dep = declare_dependency(
+    # link_with: libwebrtc
+    sources: webrtc_sources,
+    include_directories: webrtc_inc
+)
+
+subdir('rtc_base')
+subdir('system_wrappers')
+subdir('common_audio')
+subdir('modules')
 
 libwebrtc_audio = static_library('webrtc_audio',
     dependencies: [base_dep, system_wrappers_dep, utility_dep, webrtc_dep, 

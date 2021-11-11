@@ -1,5 +1,0 @@
-include_rules = [
-  "+webrtc/modules/utility/include/audio_frame_operations.h",
-  "+webrtc/base",
-  "+webrtc/system_wrappers",
-]
