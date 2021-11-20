@@ -7,6 +7,10 @@
  *  in the file PATENTS.  All contributing project authors may
  *  be found in the AUTHORS file in the root of the source tree.
  */
+// MSVC++ requires this to be set before any other includes to get M_PI.
+#ifndef _USE_MATH_DEFINES
+#define _USE_MATH_DEFINES
+#endif
 
 #include "modules/audio_processing/transient/transient_detector.h"
 
@@ -16,30 +20,35 @@
 
 #include <algorithm>
 
-#include "rtc_base/checks.h"
-#include "modules/audio_processing/transient/common.h"
+#include "modules/audio_processing/include/common.h"
 #include "modules/audio_processing/transient/daubechies_8_wavelet_coeffs.h"
 #include "modules/audio_processing/transient/moving_moments.h"
 #include "modules/audio_processing/transient/wpd_tree.h"
+#include "rtc_base/checks.h"
+
+// From <math.h>
+#ifndef M_PI
+# define M_PI           3.14159265358979323846  /* pi */
+#endif
 
 namespace webrtc {
 
 static const int kTransientLengthMs = 30;
 static const int kChunksAtStartupLeftToDelete =
-    kTransientLengthMs / ts::kChunkSizeMs;
+    kTransientLengthMs / AudioProcessing::kChunkSizeMs;
 static const float kDetectThreshold = 16.f;
 
 TransientDetector::TransientDetector(int sample_rate_hz)
-    : samples_per_chunk_(sample_rate_hz * ts::kChunkSizeMs / 1000),
+    : samples_per_chunk_(sample_rate_hz * AudioProcessing::kChunkSizeMs / 1000),
       last_first_moment_(),
       last_second_moment_(),
       chunks_at_startup_left_to_delete_(kChunksAtStartupLeftToDelete),
       reference_energy_(1.f),
       using_reference_(false) {
-  RTC_DCHECK(sample_rate_hz == ts::kSampleRate8kHz ||
-             sample_rate_hz == ts::kSampleRate16kHz ||
-             sample_rate_hz == ts::kSampleRate32kHz ||
-             sample_rate_hz == ts::kSampleRate48kHz);
+  RTC_DCHECK(sample_rate_hz == AudioProcessing::kSampleRate8kHz ||
+             sample_rate_hz == AudioProcessing::kSampleRate16kHz ||
+             sample_rate_hz == AudioProcessing::kSampleRate32kHz ||
+             sample_rate_hz == AudioProcessing::kSampleRate48kHz);
   int samples_per_transient = sample_rate_hz * kTransientLengthMs / 1000;
   // Adjustment to avoid data loss while downsampling, making
   // |samples_per_chunk_| and |samples_per_transient| always divisible by
@@ -51,8 +60,7 @@ TransientDetector::TransientDetector(int sample_rate_hz)
   wpd_tree_.reset(new WPDTree(samples_per_chunk_,
                               kDaubechies8HighPassCoefficients,
                               kDaubechies8LowPassCoefficients,
-                              kDaubechies8CoefficientsLength,
-                              kLevels));
+                              kDaubechies8CoefficientsLength, kLevels));
   for (size_t i = 0; i < kLeaves; ++i) {
     moving_moments_[i].reset(
         new MovingMoments(samples_per_transient / kLeaves));
@@ -86,8 +94,7 @@ float TransientDetector::Detect(const float* data,
   for (size_t i = 0; i < kLeaves; ++i) {
     WPDNode* leaf = wpd_tree_->NodeAt(kLevels, i);
 
-    moving_moments_[i]->CalculateMoments(leaf->data(),
-                                         tree_leaves_data_length_,
+    moving_moments_[i]->CalculateMoments(leaf->data(), tree_leaves_data_length_,
                                          first_moments_.get(),
                                          second_moments_.get());
 
@@ -122,13 +129,14 @@ float TransientDetector::Detect(const float* data,
     // Get proportional value.
     // Proportion achieved with a squared raised cosine function with domain
     // [0, kDetectThreshold) and image [0, 1), it's always increasing.
-    const float horizontal_scaling = ts::kPi / kDetectThreshold;
-    const float kHorizontalShift = ts::kPi;
+    const float horizontal_scaling = M_PI / kDetectThreshold;
+    const float kHorizontalShift = M_PI;
     const float kVerticalScaling = 0.5f;
     const float kVerticalShift = 1.f;
 
-    result = (cos(result * horizontal_scaling + kHorizontalShift)
-        + kVerticalShift) * kVerticalScaling;
+    result =
+        (cos(result * horizontal_scaling + kHorizontalShift) + kVerticalShift) *
+        kVerticalScaling;
     result *= result;
   }
 

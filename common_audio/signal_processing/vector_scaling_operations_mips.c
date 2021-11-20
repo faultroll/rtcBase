@@ -1,3 +1,7 @@
+
+#include "rtc_base/system/arch.h"
+#if defined(MIPS32_LE)
+
 /*
  *  Copyright (c) 2013 The WebRTC project authors. All Rights Reserved.
  *
@@ -55,3 +59,5 @@ int WebRtcSpl_ScaleAndAddVectorsWithRound_mips(const int16_t* in_vector1,
   }
   return 0;
 }
+
+#endif

@@ -1,3 +1,7 @@
+
+#include "rtc_base/system/arch.h"
+#if defined(MIPS32_LE)
+
 /*
  *  Copyright (c) 2013 The WebRTC project authors. All Rights Reserved.
  *
@@ -102,3 +106,5 @@ void WebRtcSpl_CrossCorrelation_mips(int32_t* cross_correlation,
     : "hi", "lo", "memory"
   );
 }
+
+#endif

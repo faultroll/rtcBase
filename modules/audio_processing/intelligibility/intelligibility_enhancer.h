@@ -8,20 +8,20 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
-#ifndef WEBRTC_MODULES_AUDIO_PROCESSING_INTELLIGIBILITY_INTELLIGIBILITY_ENHANCER_H_
-#define WEBRTC_MODULES_AUDIO_PROCESSING_INTELLIGIBILITY_INTELLIGIBILITY_ENHANCER_H_
+#ifndef MODULES_AUDIO_PROCESSING_INTELLIGIBILITY_INTELLIGIBILITY_ENHANCER_H_
+#define MODULES_AUDIO_PROCESSING_INTELLIGIBILITY_INTELLIGIBILITY_ENHANCER_H_
 
 #include <complex>
 #include <memory>
 #include <vector>
 
-#include "rtc_base/swap_queue.h"
 #include "common_audio/channel_buffer.h"
 #include "common_audio/lapped_transform.h"
 #include "modules/audio_processing/audio_buffer.h"
 #include "modules/audio_processing/intelligibility/intelligibility_utils.h"
 #include "modules/audio_processing/render_queue_item_verifier.h"
 #include "modules/audio_processing/vad/voice_activity_detector.h"
+#include "rtc_base/swap_queue.h"
 
 namespace webrtc {
 
@@ -56,13 +56,13 @@ class IntelligibilityEnhancer : public LappedTransform::Callback {
                          std::complex<float>* const* out_block) override;
 
  private:
-  // FRIEND_TEST_ALL_PREFIXES(IntelligibilityEnhancerTest, TestRenderUpdate);
-  // FRIEND_TEST_ALL_PREFIXES(IntelligibilityEnhancerTest, TestErbCreation);
-  // FRIEND_TEST_ALL_PREFIXES(IntelligibilityEnhancerTest, TestSolveForGains);
-  // FRIEND_TEST_ALL_PREFIXES(IntelligibilityEnhancerTest,
-  //                          TestNoiseGainHasExpectedResult);
-  // FRIEND_TEST_ALL_PREFIXES(IntelligibilityEnhancerTest,
-  //                          TestAllBandsHaveSameDelay);
+  /* FRIEND_TEST_ALL_PREFIXES(IntelligibilityEnhancerTest, TestRenderUpdate);
+  FRIEND_TEST_ALL_PREFIXES(IntelligibilityEnhancerTest, TestErbCreation);
+  FRIEND_TEST_ALL_PREFIXES(IntelligibilityEnhancerTest, TestSolveForGains);
+  FRIEND_TEST_ALL_PREFIXES(IntelligibilityEnhancerTest,
+                           TestNoiseGainHasExpectedResult);
+  FRIEND_TEST_ALL_PREFIXES(IntelligibilityEnhancerTest,
+                           TestAllBandsHaveSameDelay); */
 
   // Updates the SNR estimation and enables or disables this component using a
   // hysteresis.
@@ -93,7 +93,7 @@ class IntelligibilityEnhancer : public LappedTransform::Callback {
 
   static const size_t kMaxNumNoiseEstimatesToBuffer = 5;
 
-  const size_t freqs_;         // Num frequencies in frequency domain.
+  const size_t freqs_;  // Num frequencies in frequency domain.
   const size_t num_noise_bins_;
   const size_t chunk_length_;  // Chunk size in samples.
   const size_t bank_size_;     // Num ERB filters.
@@ -134,4 +134,4 @@ class IntelligibilityEnhancer : public LappedTransform::Callback {
 
 }  // namespace webrtc
 
-#endif  // WEBRTC_MODULES_AUDIO_PROCESSING_INTELLIGIBILITY_INTELLIGIBILITY_ENHANCER_H_
+#endif  // MODULES_AUDIO_PROCESSING_INTELLIGIBILITY_INTELLIGIBILITY_ENHANCER_H_

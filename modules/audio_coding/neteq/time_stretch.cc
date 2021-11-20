@@ -13,7 +13,7 @@
 #include <algorithm>  // min, max
 #include <memory>
 
-#include "rtc_base/safe_conversions.h"
+#include "rtc_base/numerics/safe_conversions.h"
 #include "common_audio/signal_processing/include/signal_processing_library.h"
 // #include "modules/audio_coding/neteq/background_noise.h"
 #include "modules/audio_coding/neteq/cross_correlation.h"

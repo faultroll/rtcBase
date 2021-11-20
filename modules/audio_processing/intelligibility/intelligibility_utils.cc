@@ -16,6 +16,8 @@
 #include <algorithm>
 #include <limits>
 
+#include "rtc_base/numerics/safe_minmax.h"
+
 namespace webrtc {
 
 namespace intelligibility {
@@ -28,18 +30,18 @@ const float kMaxFactor = 100.f;
 // Return |current| changed towards |target|, with the relative change being at
 // most |limit|.
 float UpdateFactor(float target, float current, float limit) {
-  float gain = target / (current + std::numeric_limits<float>::epsilon());
-  gain = std::min(std::max(gain, 1.f - limit), 1.f + limit);
-  return std::min(std::max(current * gain, kMinFactor), kMaxFactor);;
+  const float gain = target / (current + std::numeric_limits<float>::epsilon());
+  const float clamped_gain = rtc::SafeClamp<float>(gain, 1 - limit, 1 + limit);
+  return rtc::SafeClamp<float>(current * clamped_gain, kMinFactor, kMaxFactor);
 }
 
 }  // namespace
 
-template<typename T>
+template <typename T>
 PowerEstimator<T>::PowerEstimator(size_t num_freqs, float decay)
     : power_(num_freqs, 0.f), decay_(decay) {}
 
-template<typename T>
+template <typename T>
 void PowerEstimator<T>::Step(const T* data) {
   for (size_t i = 0; i < power_.size(); ++i) {
     power_[i] = decay_ * power_[i] +

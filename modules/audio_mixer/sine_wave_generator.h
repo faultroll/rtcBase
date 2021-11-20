@@ -8,11 +8,13 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
-#ifndef WEBRTC_MODULES_AUDIO_MIXER_SINE_WAVE_GENERATOR_H_
-#define WEBRTC_MODULES_AUDIO_MIXER_SINE_WAVE_GENERATOR_H_
+#ifndef MODULES_AUDIO_MIXER_SINE_WAVE_GENERATOR_H_
+#define MODULES_AUDIO_MIXER_SINE_WAVE_GENERATOR_H_
 
+#include <stdint.h>
+
+#include "modules/include/audio_frame.h"
 #include "rtc_base/checks.h"
-#include "modules/include/module_common_types.h"
 
 namespace webrtc {
 
@@ -35,4 +37,4 @@ class SineWaveGenerator {
 
 }  // namespace webrtc
 
-#endif  // WEBRTC_MODULES_AUDIO_MIXER_SINE_WAVE_GENERATOR_H_
+#endif  // MODULES_AUDIO_MIXER_SINE_WAVE_GENERATOR_H_

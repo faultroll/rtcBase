@@ -1,3 +1,7 @@
+
+#include "rtc_base/system/arch.h"
+#if defined(WEBRTC_HAS_NEON)
+
 /*
  *  Copyright (c) 2014 The WebRTC project authors. All Rights Reserved.
  *
@@ -44,7 +48,7 @@ int WebRtcSpl_DownsampleFastNeon(const int16_t* data_in,
         int32x4_t out32x4_0 = vdupq_n_s32(2048);
         int32x4_t out32x4_1 = vdupq_n_s32(2048);
 
-#if defined(WEBRTC_ARCH_ARM64)
+#if defined(WEBRTC_ARCH_64_BITS)
         // Unroll the loop 2 times.
         for (j = 0; j < coefficients_length - 1; j += 2) {
           int32x2_t coeff32 = vld1_dup_s32((int32_t*)&coefficients[j]);
@@ -215,3 +219,5 @@ int WebRtcSpl_DownsampleFastNeon(const int16_t* data_in,
 
   return 0;
 }
+
+#endif

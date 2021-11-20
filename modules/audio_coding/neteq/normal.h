@@ -11,15 +11,16 @@
 #ifndef MODULES_AUDIO_CODING_NETEQ_NORMAL_H_
 #define MODULES_AUDIO_CODING_NETEQ_NORMAL_H_
 
-#include <string.h>  // Access to size_t.
+#include <stddef.h>  // size_t
+#include <stdbool.h>
+#include <stdint.h>
 
 #include <vector>
 
-#include "rtc_base/constructormagic.h"
+#include "rtc_base/constructor_magic.h"
 #include "modules/audio_coding/neteq/audio_multi_vector.h"
 // #include "modules/audio_coding/neteq/defines.h"
-#include "typedefs.h"
-#include "rtc_base/safe_conversions.h"
+#include "rtc_base/numerics/safe_conversions.h"
 
 namespace webrtc {
 
@@ -42,7 +43,7 @@ class Normal {
         /* decoder_database_(decoder_database),
         background_noise_(background_noise),
         expand_(expand), */
-        samples_per_ms_(rtc::CheckedDivExact(fs_hz_, 1000)),
+        samples_per_ms_(/* rtc::CheckedDivExact */RTC_CHECK_DIV_EXACT(fs_hz_, 1000)),
         default_win_slope_Q14_(
             rtc::dchecked_cast<uint16_t>((1 << 14) / samples_per_ms_)) {}
 

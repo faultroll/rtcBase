@@ -1,3 +1,7 @@
+
+#include "rtc_base/system/arch.h"
+#if defined(MIPS32_LE)
+
 /*
  *  Copyright (c) 2013 The WebRTC project authors. All Rights Reserved.
  *
@@ -138,3 +142,4 @@ void WebRtcSpl_FilterARFastQ12(const int16_t* data_in,
   );
 }
 
+#endif

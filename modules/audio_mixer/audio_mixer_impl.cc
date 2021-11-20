@@ -10,14 +10,18 @@
 
 #include "modules/audio_mixer/audio_mixer_impl.h"
 
+#include <stdint.h>
+
 #include <algorithm>
-#include <functional>
 #include <iterator>
+#include <type_traits>
 #include <utility>
 
-#include "rtc_base/logging.h"
 #include "modules/audio_mixer/audio_frame_manipulator.h"
 #include "modules/audio_mixer/default_output_rate_calculator.h"
+#include "rtc_base/checks.h"
+// #include "rtc_base/logging.h"
+#include "rtc_base/ref_counted_object.h"
 
 namespace webrtc {
 namespace {
@@ -118,12 +122,6 @@ rtc::scoped_refptr<AudioMixerImpl> AudioMixerImpl::Create() {
                 true);
 }
 
-rtc::scoped_refptr<AudioMixerImpl>
-AudioMixerImpl::CreateWithOutputRateCalculator(
-    std::unique_ptr<OutputRateCalculator> output_rate_calculator) {
-  return Create(std::move(output_rate_calculator), true);
-}
-
 rtc::scoped_refptr<AudioMixerImpl> AudioMixerImpl::Create(
     std::unique_ptr<OutputRateCalculator> output_rate_calculator,
     bool use_limiter) {
@@ -134,7 +132,7 @@ rtc::scoped_refptr<AudioMixerImpl> AudioMixerImpl::Create(
 
 void AudioMixerImpl::Mix(size_t number_of_channels,
                          AudioFrame* audio_frame_for_mixing) {
-  RTC_DCHECK(number_of_channels == 1 || number_of_channels == 2);
+  RTC_DCHECK(number_of_channels >= 1);
   RTC_DCHECK_RUNS_SERIALIZED(&race_checker_);
 
   CalculateOutputFrequency();
@@ -176,7 +174,7 @@ bool AudioMixerImpl::AddSource(Source* audio_source) {
   rtc::CritScope lock(&crit_);
   RTC_DCHECK(FindSourceInList(audio_source, &audio_source_list_) ==
              audio_source_list_.end())
-      << "Source already added to mixer";
+      /* << "Source already added to mixer" */;
   audio_source_list_.emplace_back(new SourceStatus(audio_source, false, 0));
   return true;
 }
@@ -185,7 +183,7 @@ void AudioMixerImpl::RemoveSource(Source* audio_source) {
   RTC_DCHECK(audio_source);
   rtc::CritScope lock(&crit_);
   const auto iter = FindSourceInList(audio_source, &audio_source_list_);
-  RTC_DCHECK(iter != audio_source_list_.end()) << "Source not present in mixer";
+  RTC_DCHECK(iter != audio_source_list_.end()) /* << "Source not present in mixer" */;
   audio_source_list_.erase(iter);
 }
 
@@ -202,7 +200,7 @@ AudioFrameList AudioMixerImpl::GetAudioFromSources() {
             OutputFrequency(), &source_and_status->audio_frame);
 
     if (audio_frame_info == Source::AudioFrameInfo::kError) {
-      LOG_F(LS_WARNING) << "failed to GetAudioFrameWithInfo() from source";
+      /* RTC_LOG_F(LS_WARNING) << "failed to GetAudioFrameWithInfo() from source"; */
       continue;
     }
     audio_source_mixing_data_list.emplace_back(
@@ -248,7 +246,7 @@ bool AudioMixerImpl::GetAudioSourceMixabilityStatusForTest(
     return (*iter)->is_mixed;
   }
 
-  LOG(LS_ERROR) << "Audio source unknown";
+  /* RTC_LOG(LS_ERROR) << "Audio source unknown"; */
   return false;
 }
 }  // namespace webrtc

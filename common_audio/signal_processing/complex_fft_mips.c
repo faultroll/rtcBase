@@ -1,3 +1,7 @@
+
+#include "rtc_base/system/arch.h"
+#if defined(MIPS32_LE)
+
 /*
  *  Copyright (c) 2013 The WebRTC project authors. All Rights Reserved.
  *
@@ -7,7 +11,6 @@
  *  in the file PATENTS.  All contributing project authors may
  *  be found in the AUTHORS file in the root of the source tree.
  */
-
 
 #include "common_audio/signal_processing/complex_fft_tables.h"
 #include "common_audio/signal_processing/include/signal_processing_library.h"
@@ -326,3 +329,5 @@ int WebRtcSpl_ComplexIFFT(int16_t frfi[], int stages, int mode) {
   return scale;
 
 }
+
+#endif

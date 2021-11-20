@@ -1,3 +1,7 @@
+
+#include "rtc_base/system/arch.h"
+#if defined(WEBRTC_ARCH_ARM_V5)
+
 @
 @ Copyright (c) 2012 The WebRTC project authors. All Rights Reserved.
 @
@@ -12,7 +16,7 @@
 @ for ARMv5 platforms.
 @ Reference C code is in file complex_bit_reverse.c. Bit-exact.
 
-#include "system_wrappers/include/asm_defines.h"
+#include "rtc_base/system/asm_defines.h"
 
 GLOBAL_FUNCTION WebRtcSpl_ComplexBitReverse
 .align  2
@@ -117,3 +121,5 @@ index_8:  @ Indexes for stages == 8.
   .short 676, 604, 932, 620, 868, 628, 740, 636, 996, 652, 788, 668, 916, 684
   .short 852, 692, 724, 700, 980, 716, 820, 732, 948, 748, 884, 764, 1012, 796
   .short 908, 812, 844, 828, 972, 860, 940, 892, 1004, 956, 988
+
+#endif

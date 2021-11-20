@@ -8,8 +8,8 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
-#ifndef WEBRTC_MODULES_AUDIO_MIXER_DEFAULT_OUTPUT_RATE_CALCULATOR_H_
-#define WEBRTC_MODULES_AUDIO_MIXER_DEFAULT_OUTPUT_RATE_CALCULATOR_H_
+#ifndef MODULES_AUDIO_MIXER_DEFAULT_OUTPUT_RATE_CALCULATOR_H_
+#define MODULES_AUDIO_MIXER_DEFAULT_OUTPUT_RATE_CALCULATOR_H_
 
 #include <vector>
 
@@ -32,4 +32,4 @@ class DefaultOutputRateCalculator : public OutputRateCalculator {
 
 }  // namespace webrtc
 
-#endif  // WEBRTC_MODULES_AUDIO_MIXER_DEFAULT_OUTPUT_RATE_CALCULATOR_H_
+#endif  // MODULES_AUDIO_MIXER_DEFAULT_OUTPUT_RATE_CALCULATOR_H_

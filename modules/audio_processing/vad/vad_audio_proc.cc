@@ -12,19 +12,19 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <string.h>
 
-#include "rtc_base/checks.h"
-#include "common_audio/fft4g.h"
-#include "modules/audio_processing/vad/vad_audio_proc_internal.h"
+#include "common_audio/third_party/ooura/fft_size_256/fft4g.h"
 #include "modules/audio_processing/vad/pitch_internal.h"
 #include "modules/audio_processing/vad/pole_zero_filter.h"
+#include "modules/audio_processing/vad/vad_audio_proc_internal.h"
+#include "rtc_base/checks.h"
 extern "C" {
-#include "modules/audio_coding/codecs/isac/main/source/codec.h"
-#include "modules/audio_coding/codecs/isac/main/source/lpc_analysis.h"
+#include "modules/audio_coding/codecs/isac/main/source/filter_functions.h"
+#include "modules/audio_coding/codecs/isac/main/source/isac_vad.h"
 #include "modules/audio_coding/codecs/isac/main/source/pitch_estimator.h"
 #include "modules/audio_coding/codecs/isac/main/source/structs.h"
 }
-#include "modules/include/module_common_types.h"
 
 namespace webrtc {
 
@@ -33,9 +33,9 @@ namespace webrtc {
 struct VadAudioProc::PitchAnalysisStruct : public ::PitchAnalysisStruct {};
 struct VadAudioProc::PreFiltBankstr : public ::PreFiltBankstr {};
 
-static const float kFrequencyResolution =
+static constexpr float kFrequencyResolution =
     kSampleRateHz / static_cast<float>(VadAudioProc::kDftSize);
-static const int kSilenceRms = 5;
+static constexpr int kSilenceRms = 5;
 
 // TODO(turajs): Make a Create or Init for VadAudioProc.
 VadAudioProc::VadAudioProc()
@@ -67,8 +67,7 @@ VadAudioProc::VadAudioProc()
   WebRtcIsac_InitPitchAnalysis(pitch_analysis_handle_.get());
 }
 
-VadAudioProc::~VadAudioProc() {
-}
+VadAudioProc::~VadAudioProc() {}
 
 void VadAudioProc::ResetBuffer() {
   memcpy(audio_buffer_, &audio_buffer_[kNumSamplesToProcess],

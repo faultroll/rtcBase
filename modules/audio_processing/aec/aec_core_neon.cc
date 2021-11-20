@@ -1,3 +1,7 @@
+
+#include "rtc_base/system/arch.h"
+#if defined(WEBRTC_HAS_NEON)
+
 /*
  *  Copyright (c) 2014 The WebRTC project authors. All Rights Reserved.
  *
@@ -23,7 +27,7 @@ extern "C" {
 }
 #include "modules/audio_processing/aec/aec_common.h"
 #include "modules/audio_processing/aec/aec_core_optimized_methods.h"
-#include "modules/audio_processing/utility/ooura_fft.h"
+#include "common_audio/third_party/ooura/fft_size_128/ooura_fft.h"
 
 namespace webrtc {
 
@@ -38,13 +42,12 @@ __inline static float MulIm(float aRe, float aIm, float bRe, float bIm) {
   return aRe * bIm + aIm * bRe;
 }
 
-static void FilterFarNEON(int num_partitions,
-                          int x_fft_buf_block_pos,
-                          float x_fft_buf[2]
-                                         [kExtendedNumPartitions * PART_LEN1],
-                          float h_fft_buf[2]
-                                         [kExtendedNumPartitions * PART_LEN1],
-                          float y_fft[2][PART_LEN1]) {
+static void FilterFarNEON(
+    int num_partitions,
+    int x_fft_buf_block_pos,
+    float x_fft_buf[2][kExtendedNumPartitions * PART_LEN1],
+    float h_fft_buf[2][kExtendedNumPartitions * PART_LEN1],
+    float y_fft[2][PART_LEN1]) {
   int i;
   for (i = 0; i < num_partitions; i++) {
     int j;
@@ -83,7 +86,7 @@ static void FilterFarNEON(int num_partitions,
 }
 
 // ARM64's arm_neon.h has already defined vdivq_f32 vsqrtq_f32.
-#if !defined(WEBRTC_ARCH_ARM64)
+#if !defined(WEBRTC_ARCH_64_BITS)
 static float32x4_t vdivq_f32(float32x4_t a, float32x4_t b) {
   int i;
   float32x4_t x = vrecpeq_f32(b);
@@ -125,7 +128,7 @@ static float32x4_t vsqrtq_f32(float32x4_t s) {
   // sqrt(s) = s * 1/sqrt(s)
   return vmulq_f32(s, x);
 }
-#endif  // WEBRTC_ARCH_ARM64
+#endif
 
 static void ScaleErrorSignalNEON(float mu,
                                  float error_threshold,
@@ -735,3 +738,5 @@ void WebRtcAec_InitAec_neon(void) {
   WebRtcAec_WindowData = WindowDataNEON;
 }
 }  // namespace webrtc
+
+#endif

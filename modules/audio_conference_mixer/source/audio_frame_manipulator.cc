@@ -9,8 +9,11 @@
  */
 
 #include "modules/audio_conference_mixer/source/audio_frame_manipulator.h"
-#include "modules/include/module_common_types.h"
-#include "typedefs.h"
+
+#include <string.h>
+#include <assert.h>
+
+#include "modules/include/audio_frame.h"
 
 namespace {
 // Linear ramping over 80 samples.
@@ -46,7 +49,7 @@ uint32_t CalculateEnergy(const AudioFrame& audioFrame)
         position++)
     {
         // TODO(andrew): this can easily overflow.
-        energy += audioFrame.data_[position] * audioFrame.data_[position];
+        energy += audioFrame.data()[position] * audioFrame.data()[position];
     }
     return energy;
 }
@@ -56,8 +59,8 @@ void RampIn(AudioFrame& audioFrame)
     assert(rampSize <= audioFrame.samples_per_channel_);
     for(size_t i = 0; i < rampSize; i++)
     {
-        audioFrame.data_[i] = static_cast<int16_t>(rampArray[i] *
-                                                   audioFrame.data_[i]);
+        audioFrame.mutable_data()[i] = static_cast<int16_t>(rampArray[i] *
+                                                   audioFrame.mutable_data()[i]);
     }
 }
 
@@ -67,11 +70,11 @@ void RampOut(AudioFrame& audioFrame)
     for(size_t i = 0; i < rampSize; i++)
     {
         const size_t rampPos = rampSize - 1 - i;
-        audioFrame.data_[i] = static_cast<int16_t>(rampArray[rampPos] *
-                                                   audioFrame.data_[i]);
+        audioFrame.mutable_data()[i] = static_cast<int16_t>(rampArray[rampPos] *
+                                                   audioFrame.mutable_data()[i]);
     }
-    memset(&audioFrame.data_[rampSize], 0,
+    memset(&audioFrame.mutable_data()[rampSize], 0,
            (audioFrame.samples_per_channel_ - rampSize) *
-           sizeof(audioFrame.data_[0]));
+           sizeof(audioFrame.mutable_data()[0]));
 }
 }  // namespace webrtc

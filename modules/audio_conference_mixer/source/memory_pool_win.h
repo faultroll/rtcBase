@@ -11,12 +11,15 @@
 #ifndef WEBRTC_MODULES_AUDIO_CONFERENCE_MIXER_SOURCE_MEMORY_POOL_WINDOWS_H_
 #define WEBRTC_MODULES_AUDIO_CONFERENCE_MIXER_SOURCE_MEMORY_POOL_WINDOWS_H_
 
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+
 #include <assert.h>
 #include <windows.h>
 
-#include "system_wrappers/include/aligned_malloc.h"
-#include "system_wrappers/include/atomic32.h"
-#include "typedefs.h"
+#include "rtc_base/memory/aligned_malloc.h"
+#include "rtc_base/atomic32.h"
 
 namespace webrtc {
 template<class MemoryType> struct MemoryPoolItem;

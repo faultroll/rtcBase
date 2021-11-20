@@ -15,7 +15,7 @@
  */
 
 #include "common_audio/signal_processing/include/signal_processing_library.h"
-#include "system_wrappers/include/cpu_features_wrapper.h"
+// #include "system_wrappers/include/cpu_features_wrapper.h"
 
 /* Declare function pointers. */
 MaxAbsValueW16 WebRtcSpl_MaxAbsValueW16;
@@ -28,9 +28,9 @@ CrossCorrelation WebRtcSpl_CrossCorrelation;
 DownsampleFast WebRtcSpl_DownsampleFast;
 ScaleAndAddVectorsWithRound WebRtcSpl_ScaleAndAddVectorsWithRound;
 
-#if (!defined(WEBRTC_HAS_NEON)) && !defined(MIPS32_LE)
+#if !defined(WEBRTC_HAS_NEON) && !defined(MIPS32_LE)
 /* Initialize function pointers to the generic C version. */
-static void InitPointersToC() {
+static void InitPointersToC(void) {
   WebRtcSpl_MaxAbsValueW16 = WebRtcSpl_MaxAbsValueW16C;
   WebRtcSpl_MaxAbsValueW32 = WebRtcSpl_MaxAbsValueW32C;
   WebRtcSpl_MaxValueW16 = WebRtcSpl_MaxValueW16C;
@@ -46,7 +46,7 @@ static void InitPointersToC() {
 
 #if defined(WEBRTC_HAS_NEON)
 /* Initialize function pointers to the Neon version. */
-static void InitPointersToNeon() {
+static void InitPointersToNeon(void) {
   WebRtcSpl_MaxAbsValueW16 = WebRtcSpl_MaxAbsValueW16Neon;
   WebRtcSpl_MaxAbsValueW32 = WebRtcSpl_MaxAbsValueW32Neon;
   WebRtcSpl_MaxValueW16 = WebRtcSpl_MaxValueW16Neon;
@@ -62,7 +62,7 @@ static void InitPointersToNeon() {
 
 #if defined(MIPS32_LE)
 /* Initialize function pointers to the MIPS version. */
-static void InitPointersToMIPS() {
+static void InitPointersToMIPS(void) {
   WebRtcSpl_MaxAbsValueW16 = WebRtcSpl_MaxAbsValueW16_mips;
   WebRtcSpl_MaxValueW16 = WebRtcSpl_MaxValueW16_mips;
   WebRtcSpl_MaxValueW32 = WebRtcSpl_MaxValueW32_mips;
@@ -92,6 +92,7 @@ static void InitFunctionPointers(void) {
 #endif  /* WEBRTC_HAS_NEON */
 }
 
+// TODO replace this with platform_thread_types
 #if defined(WEBRTC_POSIX)
 #include <pthread.h>
 
@@ -100,7 +101,7 @@ static void once(void (*func)(void)) {
   pthread_once(&lock, func);
 }
 
-#elif defined(_WIN32)
+#elif defined(WEBRTC_WIN)
 #include <windows.h>
 
 static void once(void (*func)(void)) {
@@ -123,11 +124,11 @@ static void once(void (*func)(void)) {
 }
 
 /* There's no fallback version as an #else block here to ensure thread safety.
- * In case of neither pthread for WEBRTC_POSIX nor _WIN32 is present, build
+ * In case of neither pthread for WEBRTC_POSIX nor WEBRTC_WIN is present, build
  * system should pick it up.
  */
 #endif  /* WEBRTC_POSIX */
 
-void WebRtcSpl_Init() {
+void WebRtcSpl_Init(void) {
   once(InitFunctionPointers);
 }

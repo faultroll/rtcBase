@@ -13,11 +13,9 @@
 
 #include <assert.h>
 
-#include "typedefs.h"
-
-#ifdef _WIN32
+#if defined(WEBRTC_WIN)
 #include "modules/audio_conference_mixer/source/memory_pool_win.h"
-#else
+#else // #elif defined(WEBRTC_POSIX)
 #include "modules/audio_conference_mixer/source/memory_pool_posix.h"
 #endif
 

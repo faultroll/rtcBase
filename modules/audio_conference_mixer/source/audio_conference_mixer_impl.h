@@ -11,19 +11,23 @@
 #ifndef WEBRTC_MODULES_AUDIO_CONFERENCE_MIXER_SOURCE_AUDIO_CONFERENCE_MIXER_IMPL_H_
 #define WEBRTC_MODULES_AUDIO_CONFERENCE_MIXER_SOURCE_AUDIO_CONFERENCE_MIXER_IMPL_H_
 
+#include <stdint.h>
+
 #include <list>
 #include <map>
 #include <memory>
 
-#include "rtc_base/criticalsection.h"
+#include "rtc_base/critical_section.h"
 #include "modules/audio_conference_mixer/include/audio_conference_mixer.h"
 #include "modules/audio_conference_mixer/source/memory_pool.h"
 #include "modules/audio_conference_mixer/source/time_scheduler.h"
-#include "modules/include/module_common_types.h"
-#include "typedefs.h"
+#include "modules/include/audio_frame.h"
+// #include "modules/audio_processing/agc2/fixed_gain_controller.h"
+#include "modules/audio_processing/agc2/limiter.h"
 
 namespace webrtc {
-class AudioProcessing;
+// class AudioProcessing;
+class ApmDataDumper;
 
 struct FrameAndMuteInfo {
   FrameAndMuteInfo(AudioFrame* f, bool m) : frame(f), muted(m) {}
@@ -192,7 +196,10 @@ private:
     int16_t _processCalls;
 
     // Used for inhibiting saturation in mixing.
-    std::unique_ptr<AudioProcessing> _limiter;
+    // std::unique_ptr<AudioProcessing> _limiter;
+    std::unique_ptr<ApmDataDumper> _data_dumper;
+    // std::unique_ptr<FixedGainController> _limiter;
+    std::unique_ptr<Limiter> _limiter;
 
     // woogeen vad
     enum {kMaximumVadParticipants = 1024};
@@ -207,7 +214,7 @@ private:
     uint32_t _amountOf10MsRemainder;
     std::map<int32_t, int64_t> _vadParticipantEnergyList;
 
-    std::map<int32_t, std::unique_ptr<AudioProcessing>> _apms;
+    // std::map<int32_t, std::unique_ptr<AudioProcessing>> _apms;
 
     std::vector<ParticipantVadStatistics> _vadStatistics;
 

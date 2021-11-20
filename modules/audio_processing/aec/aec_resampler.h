@@ -8,8 +8,8 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
-#ifndef WEBRTC_MODULES_AUDIO_PROCESSING_AEC_AEC_RESAMPLER_H_
-#define WEBRTC_MODULES_AUDIO_PROCESSING_AEC_AEC_RESAMPLER_H_
+#ifndef MODULES_AUDIO_PROCESSING_AEC_AEC_RESAMPLER_H_
+#define MODULES_AUDIO_PROCESSING_AEC_AEC_RESAMPLER_H_
 
 #include "modules/audio_processing/aec/aec_core.h"
 
@@ -36,4 +36,4 @@ void WebRtcAec_ResampleLinear(void* resampInst,
 
 }  // namespace webrtc
 
-#endif  // WEBRTC_MODULES_AUDIO_PROCESSING_AEC_AEC_RESAMPLER_H_
+#endif  // MODULES_AUDIO_PROCESSING_AEC_AEC_RESAMPLER_H_

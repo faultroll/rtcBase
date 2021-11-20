@@ -17,7 +17,7 @@
 
 #include "common_audio/signal_processing/include/signal_processing_library.h"
 
-#ifdef WEBRTC_ARCH_ARM_V7
+#if defined(WEBRTC_ARCH_ARM_V7)
 
 // allpass filter coefficients.
 static const uint32_t kResampleAllpass1[3] = {3284, 24441, 49528 << 15};
@@ -83,7 +83,7 @@ void WebRtcSpl_DownsampleBy2(const int16_t* in, size_t len,
 
   for (i = (len >> 1); i > 0; i--) {
     // lower allpass filter
-    in32 = (int32_t)(*in++) << 10;
+    in32 = (int32_t)(*in++) * (1 << 10);
     diff = in32 - state1;
     tmp1 = MUL_ACCUM_1(kResampleAllpass2[0], diff, state0);
     state0 = in32;
@@ -95,7 +95,7 @@ void WebRtcSpl_DownsampleBy2(const int16_t* in, size_t len,
     state2 = tmp2;
 
     // upper allpass filter
-    in32 = (int32_t)(*in++) << 10;
+    in32 = (int32_t)(*in++) * (1 << 10);
     diff = in32 - state5;
     tmp1 = MUL_ACCUM_1(kResampleAllpass1[0], diff, state4);
     state4 = in32;
@@ -122,7 +122,7 @@ void WebRtcSpl_DownsampleBy2(const int16_t* in, size_t len,
   filtState[6] = state6;
   filtState[7] = state7;
 }
-#endif  // #if defined(MIPS32_LE)
+#endif  // #if !defined(MIPS32_LE)
 
 
 void WebRtcSpl_UpsampleBy2(const int16_t* in, size_t len,
@@ -141,7 +141,7 @@ void WebRtcSpl_UpsampleBy2(const int16_t* in, size_t len,
 
   for (i = len; i > 0; i--) {
     // lower allpass filter
-    in32 = (int32_t)(*in++) << 10;
+    in32 = (int32_t)(*in++) * (1 << 10);
     diff = in32 - state1;
     tmp1 = MUL_ACCUM_1(kResampleAllpass1[0], diff, state0);
     state0 = in32;

@@ -11,12 +11,14 @@
 #ifndef WEBRTC_MODULES_AUDIO_CODING_NETEQ_PREEMPTIVE_EXPAND_H_
 #define WEBRTC_MODULES_AUDIO_CODING_NETEQ_PREEMPTIVE_EXPAND_H_
 
+#include <stddef.h>  // size_t
+#include <stdbool.h>
+#include <stdint.h>
 #include <assert.h>
 
-#include "rtc_base/constructormagic.h"
+#include "rtc_base/constructor_magic.h"
 #include "modules/audio_coding/neteq/audio_multi_vector.h"
 #include "modules/audio_coding/neteq/time_stretch.h"
-#include "typedefs.h"
 
 namespace webrtc {
 

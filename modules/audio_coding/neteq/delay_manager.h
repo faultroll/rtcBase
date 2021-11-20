@@ -11,15 +11,16 @@
 #ifndef MODULES_AUDIO_CODING_NETEQ_DELAY_MANAGER_H_
 #define MODULES_AUDIO_CODING_NETEQ_DELAY_MANAGER_H_
 
-#include <string.h>  // Provide access to size_t.
+#include <stddef.h>  // size_t
+#include <stdbool.h>
+#include <stdint.h>
 
 #include <deque>
 #include <memory>
 
-#include "rtc_base/constructormagic.h"
+#include "rtc_base/constructor_magic.h"
 // #include "modules/audio_coding/neteq/audio_decoder_impl.h"
 #include "modules/audio_coding/neteq/tick_timer.h"
-#include "typedefs.h"
 #include "modules/audio_coding/neteq/histogram.h"
 
 namespace webrtc {
@@ -40,7 +41,7 @@ class DelayManager {
                HistogramMode histogram_mode,
                DelayPeakDetector* peak_detector,
                const TickTimer* tick_timer,
-               std::unique_ptr<Histogram> histogram);
+               std::unique_ptr<neteq::Histogram> histogram);
 
   // Create a DelayManager object. Notify the delay manager that the packet
   // buffer can hold no more than |max_packets_in_buffer| packets (i.e., this
@@ -162,7 +163,7 @@ class DelayManager {
 
   bool first_packet_received_;
   const size_t max_packets_in_buffer_;  // Capacity of the packet buffer.
-  std::unique_ptr<Histogram> histogram_;
+  std::unique_ptr<neteq::Histogram> histogram_;
   const int histogram_quantile_;
   const HistogramMode histogram_mode_;
   const TickTimer* tick_timer_;

@@ -11,12 +11,12 @@
 #include "modules/audio_coding/neteq/audio_vector.h"
 
 #include <assert.h>
+#include <string.h> // memset
 
 #include <algorithm>
 #include <memory>
 
 #include "rtc_base/checks.h"
-#include "typedefs.h"
 
 namespace webrtc {
 

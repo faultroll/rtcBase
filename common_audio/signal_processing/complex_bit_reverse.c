@@ -1,3 +1,7 @@
+
+#include "rtc_base/system/arch.h"
+#if !defined(WEBRTC_ARCH_ARM_V5) && !defined(MIPS32_LE)
+
 /*
  *  Copyright (c) 2012 The WebRTC project authors. All Rights Reserved.
  *
@@ -106,3 +110,5 @@ void WebRtcSpl_ComplexBitReverse(int16_t* __restrict complex_data, int stages) {
     }
   }
 }
+
+#endif

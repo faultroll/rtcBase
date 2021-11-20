@@ -11,12 +11,13 @@
 #ifndef WEBRTC_MODULES_AUDIO_CODING_NETEQ_AUDIO_VECTOR_H_
 #define WEBRTC_MODULES_AUDIO_CODING_NETEQ_AUDIO_VECTOR_H_
 
-#include <string.h>  // Access to size_t.
+#include <stddef.h>  // size_t
+#include <stdbool.h>
+#include <stdint.h>
 #include <memory>
 
 #include "rtc_base/checks.h"
-#include "rtc_base/constructormagic.h"
-#include "typedefs.h"
+#include "rtc_base/constructor_magic.h"
 
 namespace webrtc {
 

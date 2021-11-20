@@ -12,6 +12,8 @@
  * The core AEC algorithm, SSE2 version of speed-critical functions.
  */
 
+#if defined(WEBRTC_HAS_SSE2)
+
 #include <emmintrin.h>
 #include <math.h>
 #include <string.h>  // memset
@@ -21,7 +23,7 @@ extern "C" {
 }
 #include "modules/audio_processing/aec/aec_common.h"
 #include "modules/audio_processing/aec/aec_core_optimized_methods.h"
-#include "modules/audio_processing/utility/ooura_fft.h"
+#include "common_audio/third_party/ooura/fft_size_128/ooura_fft.h"
 
 namespace webrtc {
 
@@ -33,13 +35,12 @@ __inline static float MulIm(float aRe, float aIm, float bRe, float bIm) {
   return aRe * bIm + aIm * bRe;
 }
 
-static void FilterFarSSE2(int num_partitions,
-                          int x_fft_buf_block_pos,
-                          float x_fft_buf[2]
-                                         [kExtendedNumPartitions * PART_LEN1],
-                          float h_fft_buf[2]
-                                         [kExtendedNumPartitions * PART_LEN1],
-                          float y_fft[2][PART_LEN1]) {
+static void FilterFarSSE2(
+    int num_partitions,
+    int x_fft_buf_block_pos,
+    float x_fft_buf[2][kExtendedNumPartitions * PART_LEN1],
+    float h_fft_buf[2][kExtendedNumPartitions * PART_LEN1],
+    float y_fft[2][PART_LEN1]) {
   int i;
   for (i = 0; i < num_partitions; i++) {
     int j;
@@ -257,10 +258,10 @@ static __m128 mm_pow_ps(__m128 a, __m128 b) {
         _mm_and_ps(a, *(reinterpret_cast<const __m128*>(float_exponent_mask)));
     const __m128 n_1 = _mm_castsi128_ps(_mm_srli_epi32(
         _mm_castps_si128(two_n), shift_exponent_into_top_mantissa));
-    const __m128 n_0 =
-      _mm_or_ps(n_1, *(reinterpret_cast<const __m128*>(eight_biased_exponent)));
-    const __m128 n =
-      _mm_sub_ps(n_0, *(reinterpret_cast<const __m128*>(implicit_leading_one)));
+    const __m128 n_0 = _mm_or_ps(
+        n_1, *(reinterpret_cast<const __m128*>(eight_biased_exponent)));
+    const __m128 n = _mm_sub_ps(
+        n_0, *(reinterpret_cast<const __m128*>(implicit_leading_one)));
 
     // Compute y.
     static const ALIGN16_BEG int mantissa_mask[4] ALIGN16_END = {
@@ -269,9 +270,9 @@ static __m128 mm_pow_ps(__m128 a, __m128 b) {
         0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000};
     const __m128 mantissa =
         _mm_and_ps(a, *(reinterpret_cast<const __m128*>(mantissa_mask)));
-    const __m128 y =
-        _mm_or_ps(mantissa,
-               *(reinterpret_cast<const __m128*>(zero_biased_exponent_is_one)));
+    const __m128 y = _mm_or_ps(
+        mantissa,
+        *(reinterpret_cast<const __m128*>(zero_biased_exponent_is_one)));
 
     // Approximate log2(y) ~= (y - 1) * pol5(y).
     //    pol5(y) = C5 * y^5 + C4 * y^4 + C3 * y^3 + C2 * y^2 + C1 * y + C0
@@ -303,9 +304,8 @@ static __m128 mm_pow_ps(__m128 a, __m128 b) {
     const __m128 pol5_y_8 = _mm_mul_ps(pol5_y_7, y);
     const __m128 pol5_y =
         _mm_add_ps(pol5_y_8, *(reinterpret_cast<const __m128*>(C0)));
-    const __m128 y_minus_one =
-        _mm_sub_ps(y,
-               *(reinterpret_cast<const __m128*>(zero_biased_exponent_is_one)));
+    const __m128 y_minus_one = _mm_sub_ps(
+        y, *(reinterpret_cast<const __m128*>(zero_biased_exponent_is_one)));
     const __m128 log2_y = _mm_mul_ps(y_minus_one, pol5_y);
 
     // Combine parts.
@@ -749,3 +749,5 @@ void WebRtcAec_InitAec_SSE2(void) {
   WebRtcAec_WindowData = WindowDataSSE2;
 }
 }  // namespace webrtc
+
+#endif

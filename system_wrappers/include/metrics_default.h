@@ -8,8 +8,8 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
-#ifndef WEBRTC_SYSTEM_WRAPPERS_INCLUDE_METRICS_DEFAULT_H_
-#define WEBRTC_SYSTEM_WRAPPERS_INCLUDE_METRICS_DEFAULT_H_
+#ifndef SYSTEM_WRAPPERS_INCLUDE_METRICS_DEFAULT_H_
+#define SYSTEM_WRAPPERS_INCLUDE_METRICS_DEFAULT_H_
 
 #include <map>
 #include <memory>
@@ -55,7 +55,11 @@ int NumSamples(const std::string& name);
 // Returns the minimum sample value (or -1 if the histogram has no samples).
 int MinSample(const std::string& name);
 
+// Returns a map with keys the samples with at least one event and values the
+// number of events for that sample.
+std::map<int, int> Samples(const std::string& name);
+
 }  // namespace metrics
 }  // namespace webrtc
 
-#endif  // WEBRTC_SYSTEM_WRAPPERS_INCLUDE_METRICS_DEFAULT_H_
+#endif  // SYSTEM_WRAPPERS_INCLUDE_METRICS_DEFAULT_H_

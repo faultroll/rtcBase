@@ -1,3 +1,7 @@
+
+#include "rtc_base/system/arch.h"
+#if defined(WEBRTC_HAS_NEON)
+
 /*
  *  Copyright (c) 2014 The WebRTC project authors. All Rights Reserved.
  *
@@ -9,6 +13,7 @@
  */
 
 #include "common_audio/signal_processing/include/signal_processing_library.h"
+#include "rtc_base/system/arch.h"
 
 #include <arm_neon.h>
 
@@ -26,7 +31,7 @@ static inline void DotProductWithScaleNeon(int32_t* cross_correlation,
   for (i = len1; i > 0; i -= 1) {
     int16x8_t seq1_16x8 = vld1q_s16(vector1);
     int16x8_t seq2_16x8 = vld1q_s16(vector2);
-#if defined(WEBRTC_ARCH_ARM64)
+#if defined(WEBRTC_ARCH_64_BITS)
     int32x4_t tmp0 = vmull_s16(vget_low_s16(seq1_16x8),
                                vget_low_s16(seq2_16x8));
     int32x4_t tmp1 = vmull_high_s16(seq1_16x8, seq2_16x8);
@@ -51,7 +56,7 @@ static inline void DotProductWithScaleNeon(int32_t* cross_correlation,
   }
 
   sum0 = vaddq_s64(sum0, sum1);
-#if defined(WEBRTC_ARCH_ARM64)
+#if defined(WEBRTC_ARCH_64_BITS)
   int64_t sum2 = vaddvq_s64(sum0);
   *cross_correlation = (int32_t)((sum2 + sum_res) >> scaling);
 #else
@@ -85,3 +90,5 @@ void WebRtcSpl_CrossCorrelationNeon(int32_t* cross_correlation,
     cross_correlation++;
   }
 }
+
+#endif

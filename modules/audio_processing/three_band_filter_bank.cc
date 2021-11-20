@@ -31,7 +31,9 @@
 // A similar logic can be applied to the synthesis stage.
 
 // MSVC++ requires this to be set before any other includes to get M_PI.
+#ifndef _USE_MATH_DEFINES
 #define _USE_MATH_DEFINES
+#endif
 
 #include "modules/audio_processing/three_band_filter_bank.h"
 
@@ -68,19 +70,19 @@ const size_t kNumCoeffs = 4;
 // A Kaiser window is used because of its flexibility and the alpha is set to
 // 3.5, since that sets a stop band attenuation of 40dB ensuring a fast
 // transition.
-const float kLowpassCoeffs[kNumBands * kSparsity][kNumCoeffs] =
-    {{-0.00047749f, -0.00496888f, +0.16547118f, +0.00425496f},
-     {-0.00173287f, -0.01585778f, +0.14989004f, +0.00994113f},
-     {-0.00304815f, -0.02536082f, +0.12154542f, +0.01157993f},
-     {-0.00383509f, -0.02982767f, +0.08543175f, +0.00983212f},
-     {-0.00346946f, -0.02587886f, +0.04760441f, +0.00607594f},
-     {-0.00154717f, -0.01136076f, +0.01387458f, +0.00186353f},
-     {+0.00186353f, +0.01387458f, -0.01136076f, -0.00154717f},
-     {+0.00607594f, +0.04760441f, -0.02587886f, -0.00346946f},
-     {+0.00983212f, +0.08543175f, -0.02982767f, -0.00383509f},
-     {+0.01157993f, +0.12154542f, -0.02536082f, -0.00304815f},
-     {+0.00994113f, +0.14989004f, -0.01585778f, -0.00173287f},
-     {+0.00425496f, +0.16547118f, -0.00496888f, -0.00047749f}};
+const float kLowpassCoeffs[kNumBands * kSparsity][kNumCoeffs] = {
+    {-0.00047749f, -0.00496888f, +0.16547118f, +0.00425496f},
+    {-0.00173287f, -0.01585778f, +0.14989004f, +0.00994113f},
+    {-0.00304815f, -0.02536082f, +0.12154542f, +0.01157993f},
+    {-0.00383509f, -0.02982767f, +0.08543175f, +0.00983212f},
+    {-0.00346946f, -0.02587886f, +0.04760441f, +0.00607594f},
+    {-0.00154717f, -0.01136076f, +0.01387458f, +0.00186353f},
+    {+0.00186353f, +0.01387458f, -0.01136076f, -0.00154717f},
+    {+0.00607594f, +0.04760441f, -0.02587886f, -0.00346946f},
+    {+0.00983212f, +0.08543175f, -0.02982767f, -0.00383509f},
+    {+0.01157993f, +0.12154542f, -0.02536082f, -0.00304815f},
+    {+0.00994113f, +0.14989004f, -0.01585778f, -0.00173287f},
+    {+0.00425496f, +0.16547118f, -0.00496888f, -0.00047749f}};
 
 // Downsamples |in| into |out|, taking one every |kNumbands| starting from
 // |offset|. |split_length| is the |out| length. |in| has to be at least
@@ -109,7 +111,7 @@ void Upsample(const float* in, size_t split_length, size_t offset, float* out) {
 // use a DCT to shift it in both directions at the same time, to the center
 // frequencies [1 / 12, 3 / 12, 5 / 12].
 ThreeBandFilterBank::ThreeBandFilterBank(size_t length)
-    : in_buffer_(rtc::CheckedDivExact(length, kNumBands)),
+    : in_buffer_(/* rtc::CheckedDivExact */RTC_CHECK_DIV_EXACT(length, kNumBands)),
       out_buffer_(in_buffer_.size()) {
   for (size_t i = 0; i < kSparsity; ++i) {
     for (size_t j = 0; j < kNumBands; ++j) {
@@ -142,7 +144,7 @@ ThreeBandFilterBank::~ThreeBandFilterBank() = default;
 void ThreeBandFilterBank::Analysis(const float* in,
                                    size_t length,
                                    float* const* out) {
-  RTC_CHECK_EQ(in_buffer_.size(), rtc::CheckedDivExact(length, kNumBands));
+  RTC_CHECK_EQ(in_buffer_.size(), /* rtc::CheckedDivExact */RTC_CHECK_DIV_EXACT(length, kNumBands));
   for (size_t i = 0; i < kNumBands; ++i) {
     memset(out[i], 0, in_buffer_.size() * sizeof(*out[i]));
   }
@@ -150,8 +152,7 @@ void ThreeBandFilterBank::Analysis(const float* in,
     Downsample(in, in_buffer_.size(), kNumBands - i - 1, &in_buffer_[0]);
     for (size_t j = 0; j < kSparsity; ++j) {
       const size_t offset = i + j * kNumBands;
-      analysis_filters_[offset]->Filter(&in_buffer_[0],
-                                        in_buffer_.size(),
+      analysis_filters_[offset]->Filter(&in_buffer_[0], in_buffer_.size(),
                                         &out_buffer_[0]);
       DownModulate(&out_buffer_[0], out_buffer_.size(), offset, out);
     }
@@ -173,14 +174,12 @@ void ThreeBandFilterBank::Synthesis(const float* const* in,
     for (size_t j = 0; j < kSparsity; ++j) {
       const size_t offset = i + j * kNumBands;
       UpModulate(in, in_buffer_.size(), offset, &in_buffer_[0]);
-      synthesis_filters_[offset]->Filter(&in_buffer_[0],
-                                         in_buffer_.size(),
+      synthesis_filters_[offset]->Filter(&in_buffer_[0], in_buffer_.size(),
                                          &out_buffer_[0]);
       Upsample(&out_buffer_[0], out_buffer_.size(), i, out);
     }
   }
 }
-
 
 // Modulates |in| by |dct_modulation_| and accumulates it in each of the
 // |kNumBands| bands of |out|. |offset| is the index in the period of the

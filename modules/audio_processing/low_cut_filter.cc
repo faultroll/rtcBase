@@ -12,6 +12,7 @@
 
 #include "common_audio/signal_processing/include/signal_processing_library.h"
 #include "modules/audio_processing/audio_buffer.h"
+// #include "modules/audio_processing/include/common.h"
 
 namespace webrtc {
 namespace {
@@ -22,7 +23,7 @@ const int16_t kFilterCoefficients[5] = {4012, -8024, 4012, 8002, -3913};
 class LowCutFilter::BiquadFilter {
  public:
   explicit BiquadFilter(int sample_rate_hz)
-      : ba_(sample_rate_hz == AudioProcessing::kSampleRate8kHz
+      : ba_(sample_rate_hz == 8000/* AudioProcessing::kSampleRate8kHz */
                 ? kFilterCoefficients8kHz
                 : kFilterCoefficients) {
     std::memset(x_, 0, sizeof(x_));
@@ -44,7 +45,7 @@ class LowCutFilter::BiquadFilter {
       tmp_int32 = (tmp_int32 >> 15);
       tmp_int32 += y[0] * ba[3];  // -a[1] * y[i-1] (high part)
       tmp_int32 += y[2] * ba[4];  // -a[2] * y[i-2] (high part)
-      tmp_int32 = (tmp_int32 << 1);
+      tmp_int32 *= 2;
 
       tmp_int32 += data[i] * ba[0];  // b[0] * x[0]
       tmp_int32 += x[0] * ba[1];     // b[1] * x[i-1]
@@ -58,8 +59,8 @@ class LowCutFilter::BiquadFilter {
       y[2] = y[0];
       y[3] = y[1];
       y[0] = static_cast<int16_t>(tmp_int32 >> 13);
-      y[1] = static_cast<int16_t>(
-          (tmp_int32 - (static_cast<int32_t>(y[0]) << 13)) << 2);
+
+      y[1] = static_cast<int16_t>((tmp_int32 & 0x00001FFF) * 4);
 
       // Rounding in Q12, i.e. add 2^11.
       tmp_int32 += 2048;

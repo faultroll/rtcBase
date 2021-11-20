@@ -8,11 +8,13 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
-#ifndef WEBRTC_MODULES_AUDIO_PROCESSING_BEAMFORMER_NONLINEAR_BEAMFORMER_H_
-#define WEBRTC_MODULES_AUDIO_PROCESSING_BEAMFORMER_NONLINEAR_BEAMFORMER_H_
+#ifndef MODULES_AUDIO_PROCESSING_BEAMFORMER_NONLINEAR_BEAMFORMER_H_
+#define MODULES_AUDIO_PROCESSING_BEAMFORMER_NONLINEAR_BEAMFORMER_H_
 
 // MSVC++ requires this to be set before any other includes to get M_PI.
+#ifndef _USE_MATH_DEFINES
 #define _USE_MATH_DEFINES
+#endif
 
 #include <math.h>
 
@@ -99,8 +101,8 @@ class NonlinearBeamformer : public LappedTransform::Callback {
                          complex<float>* const* output) override;
 
  private:
-  // FRIEND_TEST_ALL_PREFIXES(NonlinearBeamformerTest,
-  //                          InterfAnglesTakeAmbiguityIntoAccount);
+  /* FRIEND_TEST_ALL_PREFIXES(NonlinearBeamformerTest,
+                           InterfAnglesTakeAmbiguityIntoAccount); */
 
   typedef Matrix<float> MatrixF;
   typedef ComplexMatrix<float> ComplexMatrixF;
@@ -225,4 +227,4 @@ class NonlinearBeamformer : public LappedTransform::Callback {
 
 }  // namespace webrtc
 
-#endif  // WEBRTC_MODULES_AUDIO_PROCESSING_BEAMFORMER_NONLINEAR_BEAMFORMER_H_
+#endif  // MODULES_AUDIO_PROCESSING_BEAMFORMER_NONLINEAR_BEAMFORMER_H_

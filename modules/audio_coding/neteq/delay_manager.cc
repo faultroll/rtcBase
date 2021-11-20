@@ -15,36 +15,13 @@
 
 #include <algorithm>  // max, min
 
-#include "rtc_base/safe_conversions.h"
+#include "rtc_base/numerics/safe_conversions.h"
+#include "rtc_base/numerics/safe_minmax.h"
 #include "common_audio/signal_processing/include/signal_processing_library.h"
 #include "modules/audio_coding/neteq/delay_peak_detector.h"
-#include "modules/include/module_common_types.h"
-#include "rtc_base/logging.h"
+#include "modules/include/module_common_types_public.h"
+// #include "system_wrappers/include/logging.h"
 #include "modules/audio_coding/neteq/histogram.h"
-
-// (liuguangyuan) std::clamp not usable in c++11 (need c++17)
-// extract from m75 safe_compare.h safe_minmax.h (not safe at all)
-namespace rtc {
-
-template <typename T>
-static constexpr bool SafeLe(T a, T b) {
-  return a <= b;
-}
-
-template <typename T>
-static constexpr bool SafeGe(T a, T b) {
-  return a >= b;
-}
-
-template <typename T>
-T SafeClamp(T x, T min, T max) {
-  RTC_DCHECK_LE(min, max);
-  return SafeLe(x, min) ? static_cast<T>(min)
-             : SafeGe(x, max) ? static_cast<T>(max)
-             : static_cast<T>(x);
-}
-
-} // rtc
 
 namespace {
 
@@ -132,7 +109,7 @@ DelayManager::DelayManager(size_t max_packets_in_buffer,
                            HistogramMode histogram_mode,
                            DelayPeakDetector* peak_detector,
                            const TickTimer* tick_timer,
-                           std::unique_ptr<Histogram> histogram)
+                           std::unique_ptr<neteq::Histogram> histogram)
     : first_packet_received_(false),
       max_packets_in_buffer_(max_packets_in_buffer),
       histogram_(std::move(histogram)),
@@ -164,19 +141,19 @@ std::unique_ptr<DelayManager> DelayManager::Create(
     DelayPeakDetector* peak_detector,
     const TickTimer* tick_timer) {
   int quantile;
-  std::unique_ptr<Histogram> histogram;
+  std::unique_ptr<neteq::Histogram> histogram;
   HistogramMode mode;
   /* auto delay_histogram_config = GetDelayHistogramConfig();
   if (delay_histogram_config) {
     DelayHistogramConfig config = delay_histogram_config.value();
     quantile = config.quantile;
     histogram =
-        std::unique_ptr<Histogram>(new Histogram(kDelayBuckets, config.forget_factor));
+        std::unique_ptr<neteq::Histogram>(new neteq::Histogram(kDelayBuckets, config.forget_factor));
     mode = RELATIVE_ARRIVAL_DELAY;
   } else */ {
     quantile = /* GetForcedLimitProbability().value_or */(kLimitProbability);
     histogram = 
-        std::unique_ptr<Histogram>(new Histogram(kMaxIat + 1, kIatFactor));
+        std::unique_ptr<neteq::Histogram>(new neteq::Histogram(kMaxIat + 1, kIatFactor));
     mode = INTER_ARRIVAL_TIME;
   }
   return std::unique_ptr<DelayManager>(new DelayManager(
@@ -262,7 +239,8 @@ int DelayManager::Update(uint16_t sequence_number,
         }
         break;
       }
-      case INTER_ARRIVAL_TIME: {
+      case INTER_ARRIVAL_TIME:
+      default: {
         // Saturate IAT between 0 and maximum value.
         iat_packets =
             std::max(std::min(iat_packets, histogram_->NumBuckets() - 1), 0);
@@ -384,7 +362,8 @@ int DelayManager::CalculateTargetLevel(int iat_packets, bool reordered) {
       base_target_level_ = target_level;
       break;
     }
-    case INTER_ARRIVAL_TIME: {
+    case INTER_ARRIVAL_TIME:
+    default: {
       target_level = bucket_index;
       base_target_level_ = target_level;
       // Update detector for delay peaks.
@@ -406,7 +385,7 @@ int DelayManager::CalculateTargetLevel(int iat_packets, bool reordered) {
 
 int DelayManager::SetPacketAudioLength(int length_ms) {
   if (length_ms <= 0) {
-    LOG_F(LS_ERROR) << "length_ms = " << length_ms;
+    /* LOG_F(LS_ERROR) << "length_ms = " << length_ms; */
     return -1;
   }
   /* if (histogram_mode_ == INTER_ARRIVAL_TIME &&
@@ -462,7 +441,7 @@ void DelayManager::ResetPacketIatCount() {
 // class. They are computed from |target_level_| and used for decision making.
 void DelayManager::BufferLimits(int* lower_limit, int* higher_limit) const {
   if (!lower_limit || !higher_limit) {
-    LOG_F(LS_ERROR) << "NULL pointers supplied as input";
+    /* LOG_F(LS_ERROR) << "NULL pointers supplied as input"; */
     assert(false);
     return;
   }
@@ -545,7 +524,7 @@ void DelayManager::UpdateEffectiveMinimumDelay() {
   // Clamp |base_minimum_delay_ms_| into the range which can be effectively
   // used.
   const int base_minimum_delay_ms =
-      rtc::SafeClamp(base_minimum_delay_ms_, 0, MinimumDelayUpperBound());
+      rtc::SafeClamp<int>(base_minimum_delay_ms_, 0, MinimumDelayUpperBound());
   effective_minimum_delay_ms_ =
       std::max(minimum_delay_ms_, base_minimum_delay_ms);
 }

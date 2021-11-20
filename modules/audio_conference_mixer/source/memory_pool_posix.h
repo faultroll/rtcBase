@@ -11,11 +11,14 @@
 #ifndef WEBRTC_MODULES_AUDIO_CONFERENCE_MIXER_SOURCE_MEMORY_POOL_GENERIC_H_
 #define WEBRTC_MODULES_AUDIO_CONFERENCE_MIXER_SOURCE_MEMORY_POOL_GENERIC_H_
 
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+
 #include <assert.h>
 #include <list>
 
-#include "rtc_base/criticalsection.h"
-#include "typedefs.h"
+#include "rtc_base/critical_section.h"
 
 namespace webrtc {
 template<class MemoryType>

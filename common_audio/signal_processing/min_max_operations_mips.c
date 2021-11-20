@@ -1,3 +1,7 @@
+
+#include "rtc_base/system/arch.h"
+#if defined(MIPS32_LE)
+
 /*
  *  Copyright (c) 2013 The WebRTC project authors. All Rights Reserved.
  *
@@ -373,3 +377,5 @@ int32_t WebRtcSpl_MinValueW32_mips(const int32_t* vector, size_t length) {
 
   return minimum;
 }
+
+#endif

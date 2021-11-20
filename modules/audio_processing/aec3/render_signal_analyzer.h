@@ -8,23 +8,26 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
-#ifndef WEBRTC_MODULES_AUDIO_PROCESSING_AEC3_RENDER_SIGNAL_ANALYZER_H_
-#define WEBRTC_MODULES_AUDIO_PROCESSING_AEC3_RENDER_SIGNAL_ANALYZER_H_
+#ifndef MODULES_AUDIO_PROCESSING_AEC3_RENDER_SIGNAL_ANALYZER_H_
+#define MODULES_AUDIO_PROCESSING_AEC3_RENDER_SIGNAL_ANALYZER_H_
 
+#include <algorithm>
 #include <array>
-#include <memory>
+#include <cstddef>
 
-#include "rtc_base/constructormagic.h"
 #include "rtc_base/optional.h"
+#include "modules/audio_processing/aec3/echo_canceller3_config.h"
 #include "modules/audio_processing/aec3/aec3_common.h"
 #include "modules/audio_processing/aec3/render_buffer.h"
+#include "rtc_base/checks.h"
+#include "rtc_base/constructor_magic.h"
 
 namespace webrtc {
 
 // Provides functionality for analyzing the properties of the render signal.
 class RenderSignalAnalyzer {
  public:
-  RenderSignalAnalyzer();
+  explicit RenderSignalAnalyzer(const EchoCanceller3Config& config);
   ~RenderSignalAnalyzer();
 
   // Updates the render signal analysis with the most recent render signal.
@@ -43,12 +46,17 @@ class RenderSignalAnalyzer {
   void MaskRegionsAroundNarrowBands(
       std::array<float, kFftLengthBy2Plus1>* v) const;
 
+  rtc::Optional<int> NarrowPeakBand() const { return narrow_peak_band_; }
+
  private:
+  const int strong_peak_freeze_duration_;
   std::array<size_t, kFftLengthBy2 - 1> narrow_band_counters_;
+  rtc::Optional<int> narrow_peak_band_;
+  size_t narrow_peak_counter_;
 
   RTC_DISALLOW_COPY_AND_ASSIGN(RenderSignalAnalyzer);
 };
 
 }  // namespace webrtc
 
-#endif  // WEBRTC_MODULES_AUDIO_PROCESSING_AEC3_RENDER_SIGNAL_ANALYZER_H_
+#endif  // MODULES_AUDIO_PROCESSING_AEC3_RENDER_SIGNAL_ANALYZER_H_

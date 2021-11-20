@@ -12,8 +12,7 @@
 #define WEBRTC_MODULES_AUDIO_CONFERENCE_MIXER_INCLUDE_AUDIO_CONFERENCE_MIXER_DEFINES_H_
 
 #include "rtc_base/checks.h"
-#include "modules/include/module_common_types.h"
-#include "typedefs.h"
+#include "modules/include/audio_frame.h"
 
 namespace webrtc {
 class MixHistory;

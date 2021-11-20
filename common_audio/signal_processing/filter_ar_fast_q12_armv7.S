@@ -1,3 +1,7 @@
+
+#include "rtc_base/system/arch.h"
+#if defined(WEBRTC_ARCH_ARM_V7)
+
 @
 @ Copyright (c) 2012 The WebRTC project authors. All Rights Reserved.
 @
@@ -35,7 +39,7 @@
 @ r11: Scratch
 @ r12: &coefficients[j]
 
-#include "system_wrappers/include/asm_defines.h"
+#include "rtc_base/system/asm_defines.h"
 
 GLOBAL_FUNCTION WebRtcSpl_FilterARFastQ12
 .align  2
@@ -216,3 +220,5 @@ END:
 @    data_out[i] = (int16_t)((output1 + 2048) >> 12);
 @  }
 @}
+
+#endif

@@ -8,15 +8,14 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
-#ifndef WEBRTC_MODULES_AUDIO_PROCESSING_TRANSIENT_TRANSIENT_SUPPRESSOR_H_
-#define WEBRTC_MODULES_AUDIO_PROCESSING_TRANSIENT_TRANSIENT_SUPPRESSOR_H_
+#ifndef MODULES_AUDIO_PROCESSING_TRANSIENT_TRANSIENT_SUPPRESSOR_H_
+#define MODULES_AUDIO_PROCESSING_TRANSIENT_TRANSIENT_SUPPRESSOR_H_
 
 #include <deque>
 #include <memory>
 #include <set>
 
 // #include "rtc_base/gtest_prod_util.h"
-#include "typedefs.h"
 
 namespace webrtc {
 
@@ -59,8 +58,8 @@ class TransientSuppressor {
                bool key_pressed);
 
  private:
-  // FRIEND_TEST_ALL_PREFIXES(TransientSuppressorTest,
-  //                          TypingDetectionLogicWorksAsExpectedForMono);
+  /* FRIEND_TEST_ALL_PREFIXES(TransientSuppressorTest,
+                           TypingDetectionLogicWorksAsExpectedForMono); */
   void Suppress(float* in_ptr, float* spectral_mean, float* out_ptr);
 
   void UpdateKeypress(bool key_pressed);
@@ -117,4 +116,4 @@ class TransientSuppressor {
 
 }  // namespace webrtc
 
-#endif  // WEBRTC_MODULES_AUDIO_PROCESSING_TRANSIENT_TRANSIENT_SUPPRESSOR_H_
+#endif  // MODULES_AUDIO_PROCESSING_TRANSIENT_TRANSIENT_SUPPRESSOR_H_

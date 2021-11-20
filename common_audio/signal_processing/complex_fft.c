@@ -17,6 +17,7 @@
 
 #include "common_audio/signal_processing/complex_fft_tables.h"
 #include "common_audio/signal_processing/include/signal_processing_library.h"
+#include "rtc_base/system/arch.h"
 
 #define CFFTSFT 14
 #define CFFTRND 1
@@ -101,7 +102,7 @@ int WebRtcSpl_ComplexFFT(int16_t frfi[], int stages, int mode)
                 wr = kSinTable1024[j + 256];
                 wi = -kSinTable1024[j];
 
-#ifdef WEBRTC_ARCH_ARM_V7
+#if defined(WEBRTC_ARCH_ARM_V7)
                 int32_t wri = 0;
                 __asm __volatile("pkhbt %0, %1, %2, lsl #16" : "=r"(wri) :
                     "r"((int32_t)wr), "r"((int32_t)wi));
@@ -111,7 +112,7 @@ int WebRtcSpl_ComplexFFT(int16_t frfi[], int stages, int mode)
                 {
                     j = i + l;
 
-#ifdef WEBRTC_ARCH_ARM_V7
+#if defined(WEBRTC_ARCH_ARM_V7)
                     register int32_t frfi_r;
                     __asm __volatile(
                         "pkhbt %[frfi_r], %[frfi_even], %[frfi_odd],"
@@ -134,8 +135,8 @@ int WebRtcSpl_ComplexFFT(int16_t frfi[], int stages, int mode)
                     tr32 >>= 15 - CFFTSFT;
                     ti32 >>= 15 - CFFTSFT;
 
-                    qr32 = ((int32_t)frfi[2 * i]) << CFFTSFT;
-                    qi32 = ((int32_t)frfi[2 * i + 1]) << CFFTSFT;
+                    qr32 = ((int32_t)frfi[2 * i]) * (1 << CFFTSFT);
+                    qi32 = ((int32_t)frfi[2 * i + 1]) * (1 << CFFTSFT);
 
                     frfi[2 * j] = (int16_t)(
                         (qr32 - tr32 + CFFTRND2) >> (1 + CFFTSFT));
@@ -166,7 +167,7 @@ int WebRtcSpl_ComplexIFFT(int16_t frfi[], int stages, int mode)
     /* The 1024-value is a constant given from the size of kSinTable1024[],
      * and should not be changed depending on the input parameter 'stages'
      */
-    n = 1 << stages;
+    n = ((size_t)1) << stages;
     if (n > 1024)
         return -1;
 
@@ -243,7 +244,7 @@ int WebRtcSpl_ComplexIFFT(int16_t frfi[], int stages, int mode)
                 wr = kSinTable1024[j + 256];
                 wi = kSinTable1024[j];
 
-#ifdef WEBRTC_ARCH_ARM_V7
+#if defined(WEBRTC_ARCH_ARM_V7)
                 int32_t wri = 0;
                 __asm __volatile("pkhbt %0, %1, %2, lsl #16" : "=r"(wri) :
                     "r"((int32_t)wr), "r"((int32_t)wi));
@@ -253,7 +254,7 @@ int WebRtcSpl_ComplexIFFT(int16_t frfi[], int stages, int mode)
                 {
                     j = i + l;
 
-#ifdef WEBRTC_ARCH_ARM_V7
+#if defined(WEBRTC_ARCH_ARM_V7)
                     register int32_t frfi_r;
                     __asm __volatile(
                       "pkhbt %[frfi_r], %[frfi_even], %[frfi_odd], lsl #16\n\t"
@@ -276,8 +277,8 @@ int WebRtcSpl_ComplexIFFT(int16_t frfi[], int stages, int mode)
                     tr32 >>= 15 - CIFFTSFT;
                     ti32 >>= 15 - CIFFTSFT;
 
-                    qr32 = ((int32_t)frfi[2 * i]) << CIFFTSFT;
-                    qi32 = ((int32_t)frfi[2 * i + 1]) << CIFFTSFT;
+                    qr32 = ((int32_t)frfi[2 * i]) * (1 << CIFFTSFT);
+                    qi32 = ((int32_t)frfi[2 * i + 1]) * (1 << CIFFTSFT);
 
                     frfi[2 * j] = (int16_t)(
                         (qr32 - tr32 + round2) >> (shift + CIFFTSFT));

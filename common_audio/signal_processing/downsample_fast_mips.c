@@ -1,3 +1,7 @@
+
+#include "rtc_base/system/arch.h"
+#if defined(MIPS32_LE)
+
 /*
  *  Copyright (c) 2013 The WebRTC project authors. All Rights Reserved.
  *
@@ -167,3 +171,5 @@ int WebRtcSpl_DownsampleFast_mips(const int16_t* data_in,
 #endif  // #if defined(MIPS_DSP_R2_LE)
   return 0;
 }
+
+#endif

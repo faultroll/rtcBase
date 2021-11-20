@@ -8,20 +8,23 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
-#ifndef WEBRTC_MODULES_AUDIO_MIXER_FRAME_COMBINER_H_
-#define WEBRTC_MODULES_AUDIO_MIXER_FRAME_COMBINER_H_
+#ifndef MODULES_AUDIO_MIXER_FRAME_COMBINER_H_
+#define MODULES_AUDIO_MIXER_FRAME_COMBINER_H_
 
 #include <memory>
 #include <vector>
 
-#include "modules/audio_processing/include/audio_processing.h"
-#include "modules/include/module_common_types.h"
+#include "modules/include/audio_frame.h"
+// #include "modules/audio_processing/agc2/fixed_gain_controller.h"
+#include "modules/audio_processing/agc2/limiter.h"
 
 namespace webrtc {
+class ApmDataDumper;
 
 class FrameCombiner {
  public:
-  explicit FrameCombiner(bool use_apm_limiter);
+  enum class LimiterType { kNoLimiter, kApmAgcLimiter, kApmAgc2Limiter };
+  explicit FrameCombiner(bool use_limiter);
   ~FrameCombiner();
 
   // Combine several frames into one. Assumes sample_rate,
@@ -34,12 +37,27 @@ class FrameCombiner {
                size_t number_of_channels,
                int sample_rate,
                size_t number_of_streams,
-               AudioFrame* audio_frame_for_mixing) const;
+               AudioFrame* audio_frame_for_mixing);
+
+  // Stereo, 48 kHz, 10 ms.
+  static constexpr size_t kMaximumNumberOfChannels = 8;
+  static constexpr size_t kMaximumChannelSize = 48 * 10;
+
+  using MixingBuffer = std::array<std::array<float, kMaximumChannelSize>,
+                                  kMaximumNumberOfChannels>;
 
  private:
-  const bool use_apm_limiter_;
-  std::unique_ptr<AudioProcessing> limiter_;
+  void LogMixingStats(const std::vector<AudioFrame*>& mix_list,
+                      int sample_rate,
+                      size_t number_of_streams) const;
+
+  std::unique_ptr<ApmDataDumper> data_dumper_;
+  std::unique_ptr<MixingBuffer> mixing_buffer_;
+  // FixedGainController limiter_;
+  Limiter limiter_;
+  const bool use_limiter_;
+  mutable int uma_logging_counter_ = 0;
 };
 }  // namespace webrtc
 
-#endif  // WEBRTC_MODULES_AUDIO_MIXER_FRAME_COMBINER_H_
+#endif  // MODULES_AUDIO_MIXER_FRAME_COMBINER_H_

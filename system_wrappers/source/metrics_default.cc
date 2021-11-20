@@ -11,7 +11,7 @@
 
 #include <algorithm>
 
-#include "rtc_base/criticalsection.h"
+#include "rtc_base/critical_section.h"
 #include "rtc_base/thread_annotations.h"
 #include "system_wrappers/include/metrics.h"
 
@@ -89,11 +89,16 @@ class RtcHistogram {
     return (info_.samples.empty()) ? -1 : info_.samples.begin()->first;
   }
 
+  std::map<int, int> Samples() const {
+    rtc::CritScope cs(&crit_);
+    return info_.samples;
+  }
+
  private:
   rtc::CriticalSection crit_;
   const int min_;
   const int max_;
-  SampleInfo info_ GUARDED_BY(crit_);
+  SampleInfo info_ RTC_GUARDED_BY(crit_);
 
   RTC_DISALLOW_COPY_AND_ASSIGN(RtcHistogram);
 };
@@ -163,9 +168,16 @@ class RtcHistogramMap {
     return (it == map_.end()) ? -1 : it->second->MinSample();
   }
 
+  std::map<int, int> Samples(const std::string& name) const {
+    rtc::CritScope cs(&crit_);
+    const auto& it = map_.find(name);
+    return (it == map_.end()) ? std::map<int, int>() : it->second->Samples();
+  }
+
  private:
   rtc::CriticalSection crit_;
-  std::map<std::string, std::unique_ptr<RtcHistogram>> map_ GUARDED_BY(crit_);
+  std::map<std::string, std::unique_ptr<RtcHistogram>> map_
+      RTC_GUARDED_BY(crit_);
 
   RTC_DISALLOW_COPY_AND_ASSIGN(RtcHistogramMap);
 };
@@ -180,9 +192,9 @@ void CreateMap() {
   RtcHistogramMap* map = rtc::AtomicOps::AcquireLoadPtr(&g_rtc_histogram_map);
   if (map == nullptr) {
     RtcHistogramMap* new_map = new RtcHistogramMap();
-    RtcHistogramMap* old_map = rtc::AtomicOps::CompareAndSwapPtr(
+    /* RtcHistogramMap* old_map */bool swapped = rtc::AtomicOps::CompareAndSwapPtr(
         &g_rtc_histogram_map, static_cast<RtcHistogramMap*>(nullptr), new_map);
-    if (old_map != nullptr)
+    if (/* old_map != nullptr */!swapped)
       delete new_map;
   }
 }
@@ -202,8 +214,9 @@ RtcHistogramMap* GetMap() {
 }
 }  // namespace
 
+#ifndef WEBRTC_EXCLUDE_METRICS_DEFAULT
 // Implementation of histogram methods in
-// system_wrappers/interface/metrics.h.
+// webrtc/system_wrappers/interface/metrics.h.
 
 // Histogram with exponentially spaced buckets.
 // Creates (or finds) histogram.
@@ -246,9 +259,10 @@ Histogram* HistogramFactoryGetEnumeration(const std::string& name,
   return map->GetEnumerationHistogram(name, boundary);
 }
 
-const std::string& GetHistogramName(Histogram* histogram_pointer) {
-  RtcHistogram* ptr = reinterpret_cast<RtcHistogram*>(histogram_pointer);
-  return ptr->name();
+// Our default implementation reuses the non-sparse histogram.
+Histogram* SparseHistogramFactoryGetEnumeration(const std::string& name,
+                                                int boundary) {
+  return HistogramFactoryGetEnumeration(name, boundary);
 }
 
 // Fast path. Adds |sample| to cached |histogram_pointer|.
@@ -256,6 +270,8 @@ void HistogramAdd(Histogram* histogram_pointer, int sample) {
   RtcHistogram* ptr = reinterpret_cast<RtcHistogram*>(histogram_pointer);
   ptr->Add(sample);
 }
+
+#endif  // WEBRTC_EXCLUDE_METRICS_DEFAULT
 
 SampleInfo::SampleInfo(const std::string& name,
                        int min,
@@ -301,6 +317,11 @@ int NumSamples(const std::string& name) {
 int MinSample(const std::string& name) {
   RtcHistogramMap* map = GetMap();
   return map ? map->MinSample(name) : -1;
+}
+
+std::map<int, int> Samples(const std::string& name) {
+  RtcHistogramMap* map = GetMap();
+  return map ? map->Samples(name) : std::map<int, int>();
 }
 
 }  // namespace metrics

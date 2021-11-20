@@ -11,9 +11,11 @@
 #ifndef WEBRTC_MODULES_AUDIO_CODING_NETEQ_BUFFER_LEVEL_FILTER_H_
 #define WEBRTC_MODULES_AUDIO_CODING_NETEQ_BUFFER_LEVEL_FILTER_H_
 
-#include <stddef.h>
+#include <stddef.h>  // size_t
+#include <stdbool.h>
+#include <stdint.h>
 
-#include "rtc_base/constructormagic.h"
+#include "rtc_base/constructor_magic.h"
 
 namespace webrtc {
 

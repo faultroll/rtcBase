@@ -8,6 +8,8 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
+#if defined(MIPS32_LE)
+
 #include <string.h>
 
 #include "rtc_base/checks.h"
@@ -1000,3 +1002,4 @@ void WebRtcNsx_NormalizeRealBuffer_mips(NoiseSuppressionFixedC* inst,
   );
 }
 
+#endif

@@ -13,12 +13,12 @@
 
 #include "modules/audio_conference_mixer/include/audio_conference_mixer_defines.h"
 #include "modules/include/module.h"
-#include "modules/include/module_common_types.h"
+#include "modules/include/audio_frame.h"
 
 namespace webrtc {
 class AudioMixerOutputReceiver;
 class MixerParticipant;
-class Trace;
+// class Trace;
 
 class AudioConferenceMixer : public Module
 {

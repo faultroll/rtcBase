@@ -16,10 +16,12 @@
 #include <limits>
 #include <numeric>
 
-#include "rtc_base/checks.h"
-#include "rtc_base/logging.h"
 #include "common_audio/include/audio_util.h"
 #include "common_audio/window_generator.h"
+#include "modules/audio_processing/include/common.h"
+#include "rtc_base/checks.h"
+// #include "rtc_base/logging.h"
+#include "rtc_base/numerics/safe_minmax.h"
 
 namespace webrtc {
 
@@ -27,19 +29,19 @@ namespace {
 
 const size_t kErbResolution = 2;
 const int kWindowSizeMs = 16;
-const int kChunkSizeMs = 10;  // Size provided by APM.
+// const int kChunkSizeMs = 10;  // Size provided by APM.
 const float kClipFreqKhz = 0.2f;
 const float kKbdAlpha = 1.5f;
-const float kLambdaBot = -1.f;      // Extreme values in bisection
-const float kLambdaTop = -1e-5f;      // search for lamda.
+const float kLambdaBot = -1.f;    // Extreme values in bisection
+const float kLambdaTop = -1e-5f;  // search for lamda.
 const float kVoiceProbabilityThreshold = 0.5f;
 // Number of chunks after voice activity which is still considered speech.
 const size_t kSpeechOffsetDelay = 10;
-const float kDecayRate = 0.995f;              // Power estimation decay rate.
+const float kDecayRate = 0.995f;  // Power estimation decay rate.
 const float kMaxRelativeGainChange = 0.005f;
 const float kRho = 0.0004f;  // Default production and interpretation SNR.
 const float kPowerNormalizationFactor = 1.f / (1 << 30);
-const float kMaxActiveSNR = 128.f;  // 21dB
+const float kMaxActiveSNR = 128.f;   // 21dB
 const float kMinInactiveSNR = 32.f;  // 15dB
 const size_t kGainUpdatePeriod = 10u;
 
@@ -73,7 +75,7 @@ IntelligibilityEnhancer::IntelligibilityEnhancer(int sample_rate_hz,
     : freqs_(RealFourier::ComplexLength(
           RealFourier::FftOrder(sample_rate_hz * kWindowSizeMs / 1000))),
       num_noise_bins_(num_noise_bins),
-      chunk_length_(static_cast<size_t>(sample_rate_hz * kChunkSizeMs / 1000)),
+      chunk_length_(static_cast<size_t>(sample_rate_hz * AudioProcessing::kChunkSizeMs / 1000)),
       bank_size_(GetBankSize(sample_rate_hz, kErbResolution)),
       sample_rate_hz_(sample_rate_hz),
       num_render_channels_(num_render_channels),
@@ -123,16 +125,17 @@ IntelligibilityEnhancer::~IntelligibilityEnhancer() {
   // Don't rely on this log, since the destructor isn't called when the
   // app/tab is killed.
   if (num_chunks_ > 0) {
-    LOG(LS_INFO) << "Intelligibility Enhancer was active for "
-                 << 100.f * static_cast<float>(num_active_chunks_) / num_chunks_
-                 << "% of the call.";
+    /* RTC_LOG(LS_INFO) << "Intelligibility Enhancer was active for "
+                     << 100.f * static_cast<float>(num_active_chunks_) /
+                            num_chunks_
+                     << "% of the call."; */
   } else {
-    LOG(LS_INFO) << "Intelligibility Enhancer processed no chunk.";
+    /* RTC_LOG(LS_INFO) << "Intelligibility Enhancer processed no chunk."; */
   }
 }
 
-void IntelligibilityEnhancer::SetCaptureNoiseEstimate(
-    std::vector<float> noise, float gain) {
+void IntelligibilityEnhancer::SetCaptureNoiseEstimate(std::vector<float> noise,
+                                                      float gain) {
   RTC_DCHECK_EQ(noise.size(), num_noise_bins_);
   for (auto& bin : noise) {
     bin *= gain;
@@ -174,10 +177,9 @@ void IntelligibilityEnhancer::ProcessAudioBlock(
       MapToErbBands(noise_power_estimator_.power().data(), capture_filter_bank_,
                     filtered_noise_pow_.data());
       SolveForGainsGivenLambda(kLambdaTop, start_freq_, gains_eq_.data());
-      const float power_target = std::accumulate(
-          filtered_clear_pow_.data(),
-          filtered_clear_pow_.data() + bank_size_,
-          0.f);
+      const float power_target =
+          std::accumulate(filtered_clear_pow_.data(),
+                          filtered_clear_pow_.data() + bank_size_, 0.f);
       const float power_top =
           DotProduct(gains_eq_.data(), filtered_clear_pow_.data(), bank_size_);
       SolveForGainsGivenLambda(kLambdaBot, start_freq_, gains_eq_.data());
@@ -197,16 +199,15 @@ void IntelligibilityEnhancer::ProcessAudioBlock(
 void IntelligibilityEnhancer::SnrBasedEffectActivation() {
   const float* clear_psd = clear_power_estimator_.power().data();
   const float* noise_psd = noise_power_estimator_.power().data();
-  const float clear_power =
-      std::accumulate(clear_psd, clear_psd + freqs_, 0.f);
-  const float noise_power =
-      std::accumulate(noise_psd, noise_psd + freqs_, 0.f);
-  snr_ = kDecayRate * snr_ + (1.f - kDecayRate) * clear_power /
-      (noise_power + std::numeric_limits<float>::epsilon());
+  const float clear_power = std::accumulate(clear_psd, clear_psd + freqs_, 0.f);
+  const float noise_power = std::accumulate(noise_psd, noise_psd + freqs_, 0.f);
+  snr_ = kDecayRate * snr_ +
+         (1.f - kDecayRate) * clear_power /
+             (noise_power + std::numeric_limits<float>::epsilon());
   if (is_active_) {
     if (snr_ > kMaxActiveSNR) {
-      LOG(LS_INFO) << "Intelligibility Enhancer was deactivated at chunk "
-                   << num_chunks_;
+      /* RTC_LOG(LS_INFO) << "Intelligibility Enhancer was deactivated at chunk "
+                       << num_chunks_; */
       is_active_ = false;
       // Set the target gains to unity.
       float* gains = gain_applier_.target();
@@ -216,8 +217,8 @@ void IntelligibilityEnhancer::SnrBasedEffectActivation() {
     }
   } else {
     if (snr_ < kMinInactiveSNR) {
-      LOG(LS_INFO) << "Intelligibility Enhancer was activated at chunk "
-                   << num_chunks_;
+      /* RTC_LOG(LS_INFO) << "Intelligibility Enhancer was activated at chunk "
+                       << num_chunks_; */
       is_active_ = true;
     }
   }
@@ -287,23 +288,23 @@ std::vector<std::vector<float>> IntelligibilityEnhancer::CreateErbBank(
   }
 
   for (size_t i = 1; i <= bank_size_; ++i) {
-    static const size_t kOne = 1;  // Avoids repeated static_cast<>s below.
-    size_t lll =
-        static_cast<size_t>(round(center_freqs_[std::max(kOne, i - lf) - 1] *
-                                  num_freqs / (0.5f * sample_rate_hz_)));
-    size_t ll = static_cast<size_t>(round(center_freqs_[std::max(kOne, i) - 1] *
-                                   num_freqs / (0.5f * sample_rate_hz_)));
-    lll = std::min(num_freqs, std::max(lll, kOne)) - 1;
-    ll = std::min(num_freqs, std::max(ll, kOne)) - 1;
+    size_t lll = static_cast<size_t>(
+        round(center_freqs_[rtc::SafeMax<size_t>(1, i - lf) - 1] * num_freqs /
+              (0.5f * sample_rate_hz_)));
+    size_t ll = static_cast<size_t>(
+        round(center_freqs_[rtc::SafeMax<size_t>(1, i) - 1] * num_freqs /
+              (0.5f * sample_rate_hz_)));
+    lll = rtc::SafeClamp<size_t>(lll, 1, num_freqs) - 1;
+    ll = rtc::SafeClamp<size_t>(ll, 1, num_freqs) - 1;
 
     size_t rrr = static_cast<size_t>(
-        round(center_freqs_[std::min(bank_size_, i + rf) - 1] * num_freqs /
-              (0.5f * sample_rate_hz_)));
+        round(center_freqs_[rtc::SafeMin<size_t>(bank_size_, i + rf) - 1] *
+              num_freqs / (0.5f * sample_rate_hz_)));
     size_t rr = static_cast<size_t>(
-        round(center_freqs_[std::min(bank_size_, i + 1) - 1] * num_freqs /
-              (0.5f * sample_rate_hz_)));
-    rrr = std::min(num_freqs, std::max(rrr, kOne)) - 1;
-    rr = std::min(num_freqs, std::max(rr, kOne)) - 1;
+        round(center_freqs_[rtc::SafeMin<size_t>(bank_size_, i + 1) - 1] *
+              num_freqs / (0.5f * sample_rate_hz_)));
+    rrr = rtc::SafeClamp<size_t>(rrr, 1, num_freqs) - 1;
+    rr = rtc::SafeClamp<size_t>(rr, 1, num_freqs) - 1;
 
     float step = ll == lll ? 0.f : 1.f / (ll - lll);
     float element = 0.f;

@@ -12,8 +12,8 @@
  * Specifies the interface for the AEC core.
  */
 
-#ifndef WEBRTC_MODULES_AUDIO_PROCESSING_AEC_AEC_CORE_H_
-#define WEBRTC_MODULES_AUDIO_PROCESSING_AEC_AEC_CORE_H_
+#ifndef MODULES_AUDIO_PROCESSING_AEC_AEC_CORE_H_
+#define MODULES_AUDIO_PROCESSING_AEC_AEC_CORE_H_
 
 #include <stddef.h>
 
@@ -22,12 +22,10 @@
 extern "C" {
 #include "common_audio/ring_buffer.h"
 }
-#include "rtc_base/constructormagic.h"
-#include "common_audio/wav_file.h"
 #include "modules/audio_processing/aec/aec_common.h"
 #include "modules/audio_processing/utility/block_mean_calculator.h"
-#include "modules/audio_processing/utility/ooura_fft.h"
-#include "typedefs.h"
+#include "common_audio/third_party/ooura/fft_size_128/ooura_fft.h"
+#include "rtc_base/constructor_magic.h"
 
 namespace webrtc {
 
@@ -332,4 +330,4 @@ void WebRtcAec_SetSystemDelay(AecCore* self, int delay);
 
 }  // namespace webrtc
 
-#endif  // WEBRTC_MODULES_AUDIO_PROCESSING_AEC_AEC_CORE_H_
+#endif  // MODULES_AUDIO_PROCESSING_AEC_AEC_CORE_H_

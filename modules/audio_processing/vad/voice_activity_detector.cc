@@ -17,7 +17,6 @@
 namespace webrtc {
 namespace {
 
-const size_t kMaxLength = 320;
 const size_t kNumChannels = 1;
 
 const double kDefaultVoiceValue = 1.0;
@@ -28,8 +27,7 @@ const double kLowProbability = 0.01;
 
 VoiceActivityDetector::VoiceActivityDetector()
     : last_voice_probability_(kDefaultVoiceValue),
-      standalone_vad_(StandaloneVad::Create()) {
-}
+      standalone_vad_(StandaloneVad::Create()) {}
 
 VoiceActivityDetector::~VoiceActivityDetector() = default;
 
@@ -39,8 +37,7 @@ VoiceActivityDetector::~VoiceActivityDetector() = default;
 void VoiceActivityDetector::ProcessChunk(const int16_t* audio,
                                          size_t length,
                                          int sample_rate_hz) {
-  RTC_DCHECK_EQ(length, sample_rate_hz / 100);
-  RTC_DCHECK_LE(length, kMaxLength);
+  RTC_DCHECK_EQ(length, (size_t)sample_rate_hz / 100);
   // Resample to the required rate.
   const int16_t* resampled_ptr = audio;
   if (sample_rate_hz != kSampleRateHz) {

@@ -8,12 +8,11 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
-#ifndef WEBRTC_MODULES_AUDIO_PROCESSING_RMS_LEVEL_H_
-#define WEBRTC_MODULES_AUDIO_PROCESSING_RMS_LEVEL_H_
+#ifndef MODULES_AUDIO_PROCESSING_RMS_LEVEL_H_
+#define MODULES_AUDIO_PROCESSING_RMS_LEVEL_H_
 
-#include "rtc_base/array_view.h"
 #include "rtc_base/optional.h"
-#include "typedefs.h"
+#include "rtc_base/array_view.h"
 
 namespace webrtc {
 
@@ -71,5 +70,4 @@ class RmsLevel {
 
 }  // namespace webrtc
 
-#endif  // WEBRTC_MODULES_AUDIO_PROCESSING_RMS_LEVEL_H_
-
+#endif  // MODULES_AUDIO_PROCESSING_RMS_LEVEL_H_

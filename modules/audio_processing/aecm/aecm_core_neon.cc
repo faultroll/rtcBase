@@ -1,3 +1,7 @@
+
+#include "rtc_base/system/arch.h"
+#if defined(WEBRTC_HAS_NEON)
+
 /*
  *  Copyright (c) 2012 The WebRTC project authors. All Rights Reserved.
  *
@@ -12,14 +16,14 @@
 
 #include <arm_neon.h>
 
-#include "rtc_base/checks.h"
 #include "common_audio/signal_processing/include/real_fft.h"
+#include "rtc_base/checks.h"
 
 // TODO(kma): Re-write the corresponding assembly file, the offset
 // generating script and makefile, to replace these C functions.
 
 static inline void AddLanes(uint32_t* ptr, uint32x4_t v) {
-#if defined(WEBRTC_ARCH_ARM64)
+#if defined(WEBRTC_ARCH_64_BITS)
   *(ptr) = vaddvq_u32(v);
 #else
   uint32x2_t tmp_v;
@@ -77,12 +81,12 @@ void WebRtcAecm_CalcLinearEnergiesNeon(AecmCore* aecm,
     echo_stored_v = vaddq_u32(echo_est_v_low, echo_stored_v);
     echo_stored_v = vaddq_u32(echo_est_v_high, echo_stored_v);
 
-    echo_adapt_v = vmlal_u16(echo_adapt_v,
-                             vreinterpret_u16_s16(vget_low_s16(adapt_v)),
-                             vget_low_u16(spectrum_v));
-    echo_adapt_v = vmlal_u16(echo_adapt_v,
-                             vreinterpret_u16_s16(vget_high_s16(adapt_v)),
-                             vget_high_u16(spectrum_v));
+    echo_adapt_v =
+        vmlal_u16(echo_adapt_v, vreinterpret_u16_s16(vget_low_s16(adapt_v)),
+                  vget_low_u16(spectrum_v));
+    echo_adapt_v =
+        vmlal_u16(echo_adapt_v, vreinterpret_u16_s16(vget_high_s16(adapt_v)),
+                  vget_high_u16(spectrum_v));
 
     start_stored_p += 8;
     start_adapt_p += 8;
@@ -197,3 +201,5 @@ void WebRtcAecm_ResetAdaptiveChannelNeon(AecmCore* aecm) {
   aecm->channelAdapt16[PART_LEN] = aecm->channelStored[PART_LEN];
   aecm->channelAdapt32[PART_LEN] = (int32_t)aecm->channelStored[PART_LEN] << 16;
 }
+
+#endif

@@ -7,6 +7,10 @@
  *  in the file PATENTS.  All contributing project authors may
  *  be found in the AUTHORS file in the root of the source tree.
  */
+// MSVC++ requires this to be set before any other includes to get M_PI.
+#ifndef _USE_MATH_DEFINES
+#define _USE_MATH_DEFINES
+#endif
 
 #include "modules/audio_processing/transient/transient_suppressor.h"
 
@@ -17,15 +21,19 @@
 #include <deque>
 #include <set>
 
-#include "rtc_base/checks.h"
-#include "rtc_base/logging.h"
-#include "common_audio/fft4g.h"
 #include "common_audio/include/audio_util.h"
 #include "common_audio/signal_processing/include/signal_processing_library.h"
-#include "modules/audio_processing/transient/common.h"
-#include "modules/audio_processing/transient/transient_detector.h"
+#include "common_audio/third_party/ooura/fft_size_256/fft4g.h"
 #include "modules/audio_processing/ns/windows_private.h"
-#include "typedefs.h"
+#include "modules/audio_processing/include/common.h"
+#include "modules/audio_processing/transient/transient_detector.h"
+#include "rtc_base/checks.h"
+// #include "rtc_base/logging.h"
+
+// From <math.h>
+#ifndef M_PI
+# define M_PI           3.14159265358979323846  /* pi */
+#endif
 
 namespace webrtc {
 
@@ -60,8 +68,7 @@ TransientSuppressor::TransientSuppressor()
       use_hard_restoration_(false),
       chunks_since_voice_change_(0),
       seed_(182),
-      using_reference_(false) {
-}
+      using_reference_(false) {}
 
 TransientSuppressor::~TransientSuppressor() {}
 
@@ -69,29 +76,29 @@ int TransientSuppressor::Initialize(int sample_rate_hz,
                                     int detection_rate_hz,
                                     int num_channels) {
   switch (sample_rate_hz) {
-    case ts::kSampleRate8kHz:
+    case AudioProcessing::kSampleRate8kHz:
       analysis_length_ = 128u;
       window_ = kBlocks80w128;
       break;
-    case ts::kSampleRate16kHz:
+    case AudioProcessing::kSampleRate16kHz:
       analysis_length_ = 256u;
       window_ = kBlocks160w256;
       break;
-    case ts::kSampleRate32kHz:
+    case AudioProcessing::kSampleRate32kHz:
       analysis_length_ = 512u;
       window_ = kBlocks320w512;
       break;
-    case ts::kSampleRate48kHz:
+    case AudioProcessing::kSampleRate48kHz:
       analysis_length_ = 1024u;
       window_ = kBlocks480w1024;
       break;
     default:
       return -1;
   }
-  if (detection_rate_hz != ts::kSampleRate8kHz &&
-      detection_rate_hz != ts::kSampleRate16kHz &&
-      detection_rate_hz != ts::kSampleRate32kHz &&
-      detection_rate_hz != ts::kSampleRate48kHz) {
+  if (detection_rate_hz != AudioProcessing::kSampleRate8kHz &&
+      detection_rate_hz != AudioProcessing::kSampleRate16kHz &&
+      detection_rate_hz != AudioProcessing::kSampleRate32kHz &&
+      detection_rate_hz != AudioProcessing::kSampleRate48kHz) {
     return -1;
   }
   if (num_channels <= 0) {
@@ -99,7 +106,7 @@ int TransientSuppressor::Initialize(int sample_rate_hz,
   }
 
   detector_.reset(new TransientDetector(detection_rate_hz));
-  data_length_ = sample_rate_hz * ts::kChunkSizeMs / 1000;
+  data_length_ = sample_rate_hz * AudioProcessing::kChunkSizeMs / 1000;
   if (data_length_ > analysis_length_) {
     RTC_NOTREACHED();
     return -1;
@@ -110,17 +117,14 @@ int TransientSuppressor::Initialize(int sample_rate_hz,
   RTC_DCHECK_GE(complex_analysis_length_, kMaxVoiceBin);
   num_channels_ = num_channels;
   in_buffer_.reset(new float[analysis_length_ * num_channels_]);
-  memset(in_buffer_.get(),
-         0,
+  memset(in_buffer_.get(), 0,
          analysis_length_ * num_channels_ * sizeof(in_buffer_[0]));
-  detection_length_ = detection_rate_hz * ts::kChunkSizeMs / 1000;
+  detection_length_ = detection_rate_hz * AudioProcessing::kChunkSizeMs / 1000;
   detection_buffer_.reset(new float[detection_length_]);
-  memset(detection_buffer_.get(),
-         0,
+  memset(detection_buffer_.get(), 0,
          detection_length_ * sizeof(detection_buffer_[0]));
   out_buffer_.reset(new float[analysis_length_ * num_channels_]);
-  memset(out_buffer_.get(),
-         0,
+  memset(out_buffer_.get(), 0,
          analysis_length_ * num_channels_ * sizeof(out_buffer_[0]));
   // ip[0] must be zero to trigger initialization using rdft().
   size_t ip_length = 2 + sqrtf(analysis_length_);
@@ -129,14 +133,12 @@ int TransientSuppressor::Initialize(int sample_rate_hz,
   wfft_.reset(new float[complex_analysis_length_ - 1]);
   memset(wfft_.get(), 0, (complex_analysis_length_ - 1) * sizeof(wfft_[0]));
   spectral_mean_.reset(new float[complex_analysis_length_ * num_channels_]);
-  memset(spectral_mean_.get(),
-         0,
+  memset(spectral_mean_.get(), 0,
          complex_analysis_length_ * num_channels_ * sizeof(spectral_mean_[0]));
   fft_buffer_.reset(new float[analysis_length_ + 2]);
   memset(fft_buffer_.get(), 0, (analysis_length_ + 2) * sizeof(fft_buffer_[0]));
   magnitudes_.reset(new float[complex_analysis_length_]);
-  memset(magnitudes_.get(),
-         0,
+  memset(magnitudes_.get(), 0,
          complex_analysis_length_ * sizeof(magnitudes_[0]));
   mean_factor_.reset(new float[complex_analysis_length_]);
 
@@ -190,8 +192,8 @@ int TransientSuppressor::Suppress(float* data,
       detection_data = &in_buffer_[buffer_delay_];
     }
 
-    float detector_result = detector_->Detect(
-        detection_data, detection_length, reference_data, reference_length);
+    float detector_result = detector_->Detect(detection_data, detection_length,
+                                              reference_data, reference_length);
     if (detector_result < 0) {
       return -1;
     }
@@ -247,8 +249,8 @@ void TransientSuppressor::Suppress(float* in_ptr,
   fft_buffer_[1] = 0.f;
 
   for (size_t i = 0; i < complex_analysis_length_; ++i) {
-    magnitudes_[i] = ComplexMagnitude(fft_buffer_[i * 2],
-                                      fft_buffer_[i * 2 + 1]);
+    magnitudes_[i] =
+        ComplexMagnitude(fft_buffer_[i * 2], fft_buffer_[i * 2 + 1]);
   }
   // Restore audio if necessary.
   if (suppression_enabled_) {
@@ -269,11 +271,7 @@ void TransientSuppressor::Suppress(float* in_ptr,
   // Put R[n/2] back in fft_buffer_[1].
   fft_buffer_[1] = fft_buffer_[analysis_length_];
 
-  WebRtc_rdft(analysis_length_,
-              -1,
-              fft_buffer_.get(),
-              ip_.get(),
-              wfft_.get());
+  WebRtc_rdft(analysis_length_, -1, fft_buffer_.get(), ip_.get(), wfft_.get());
   const float fft_scaling = 2.f / analysis_length_;
 
   for (size_t i = 0; i < analysis_length_; ++i) {
@@ -282,9 +280,9 @@ void TransientSuppressor::Suppress(float* in_ptr,
 }
 
 void TransientSuppressor::UpdateKeypress(bool key_pressed) {
-  const int kKeypressPenalty = 1000 / ts::kChunkSizeMs;
-  const int kIsTypingThreshold = 1000 / ts::kChunkSizeMs;
-  const int kChunksUntilNotTyping = 4000 / ts::kChunkSizeMs;  // 4 seconds.
+  const int kKeypressPenalty = 1000 / AudioProcessing::kChunkSizeMs;
+  const int kIsTypingThreshold = 1000 / AudioProcessing::kChunkSizeMs;
+  const int kChunksUntilNotTyping = 4000 / AudioProcessing::kChunkSizeMs;  // 4 seconds.
 
   if (key_pressed) {
     keypress_counter_ += kKeypressPenalty;
@@ -295,16 +293,15 @@ void TransientSuppressor::UpdateKeypress(bool key_pressed) {
 
   if (keypress_counter_ > kIsTypingThreshold) {
     if (!suppression_enabled_) {
-      LOG(LS_INFO) << "[ts] Transient suppression is now enabled.";
+      /* RTC_LOG(LS_INFO) << "[ts] Transient suppression is now enabled."; */
     }
     suppression_enabled_ = true;
     keypress_counter_ = 0;
   }
 
-  if (detection_enabled_ &&
-      ++chunks_since_keypress_ > kChunksUntilNotTyping) {
+  if (detection_enabled_ && ++chunks_since_keypress_ > kChunksUntilNotTyping) {
     if (suppression_enabled_) {
-      LOG(LS_INFO) << "[ts] Transient suppression is now disabled.";
+      /* RTC_LOG(LS_INFO) << "[ts] Transient suppression is now disabled."; */
     }
     detection_enabled_ = false;
     suppression_enabled_ = false;
@@ -337,26 +334,22 @@ void TransientSuppressor::UpdateRestoration(float voice_probability) {
 // |detection_enabled_| is updated by UpdateKeypress().
 void TransientSuppressor::UpdateBuffers(float* data) {
   // TODO(aluebs): Change to ring buffer.
-  memmove(in_buffer_.get(),
-          &in_buffer_[data_length_],
+  memmove(in_buffer_.get(), &in_buffer_[data_length_],
           (buffer_delay_ + (num_channels_ - 1) * analysis_length_) *
               sizeof(in_buffer_[0]));
   // Copy new chunk to buffer.
   for (int i = 0; i < num_channels_; ++i) {
     memcpy(&in_buffer_[buffer_delay_ + i * analysis_length_],
-           &data[i * data_length_],
-           data_length_ * sizeof(*data));
+           &data[i * data_length_], data_length_ * sizeof(*data));
   }
   if (detection_enabled_) {
     // Shift previous chunk in out buffer.
-    memmove(out_buffer_.get(),
-            &out_buffer_[data_length_],
+    memmove(out_buffer_.get(), &out_buffer_[data_length_],
             (buffer_delay_ + (num_channels_ - 1) * analysis_length_) *
                 sizeof(out_buffer_[0]));
     // Initialize new chunk in out buffer.
     for (int i = 0; i < num_channels_; ++i) {
-      memset(&out_buffer_[buffer_delay_ + i * analysis_length_],
-             0,
+      memset(&out_buffer_[buffer_delay_ + i * analysis_length_], 0,
              data_length_ * sizeof(out_buffer_[0]));
     }
   }
@@ -374,8 +367,8 @@ void TransientSuppressor::HardRestoration(float* spectral_mean) {
   for (size_t i = 0; i < complex_analysis_length_; ++i) {
     if (magnitudes_[i] > spectral_mean[i] && magnitudes_[i] > 0) {
       // RandU() generates values on [0, int16::max()]
-      const float phase = 2 * ts::kPi * WebRtcSpl_RandU(&seed_) /
-          std::numeric_limits<int16_t>::max();
+      const float phase = 2 * M_PI * WebRtcSpl_RandU(&seed_) /
+                          std::numeric_limits<int16_t>::max();
       const float scaled_mean = detector_result * spectral_mean[i];
 
       fft_buffer_[i * 2] = (1 - detector_result) * fft_buffer_[i * 2] +
