@@ -1,8 +1,8 @@
 
 // cxx14: std::make_unique
 
-#ifndef _MAKE_CXX_H
-#define _MAKE_CXX_H
+#ifndef _MAKE_UNIQUE_H
+#define _MAKE_UNIQUE_H
 
 #include <memory> // std::unique_ptr
 
@@ -132,4 +132,4 @@ typename memory_internal::MakeUniqueResult<T>::scalar make_unique(
 }  // namespace rtc
 
 
-#endif  // _MAKE_CXX_H
+#endif  // _MAKE_UNIQUE_H

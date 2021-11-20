@@ -3,7 +3,7 @@ srcs_1 += \
         rtc_base/features/align_c.c \
         rtc_base/features/time_c.c \
         rtc_base/features/thread_c.c \
-        rtc_base/features/optional_cxx.cc
+        rtc_base/features/optional.cc
 srcs_1 += \
         rtc_base/checks.cc \
         rtc_base/time_utils.cc \
@@ -11,7 +11,7 @@ srcs_1 += \
         rtc_base/critical_section.cc \
         rtc_base/memory/aligned_malloc.cc \
         rtc_base/trace_impl.cc
-# just compile, no use
+# just compile, currently not in use
 srcs_2 += \
         rtc_base/platform_thread.cc \
         rtc_base/event.cc \

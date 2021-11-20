@@ -10,8 +10,8 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
-#ifndef _OPTIONAL_CXX_H
-#define _OPTIONAL_CXX_H
+#ifndef _OPTIONAL_H
+#define _OPTIONAL_H
 
 #include <algorithm>
 #include <memory>
@@ -374,4 +374,4 @@ using optional = Optional<T>;
 
 }  // namespace rtc
 
-#endif  // _OPTIONAL_CXX_H
+#endif  // _OPTIONAL_H

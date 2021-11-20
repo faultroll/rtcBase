@@ -1,12 +1,12 @@
 
 ## basic:
-- c11runtime // ` <catomic.h> <cthread.h> <ctime.h> for c11 features`
+- features // `<catomic.h> <cthread.h> <ctime.h> for c11 features, optional/make_unique for c++14/17 features`
 - atomic_ops.h // `c11 <stdatomic.h> with other funcs`
 - checks.cc
 - checks.h // check macros
 - constructor_magic.h // class macros
 - critical_section.cc
-- critical_section.h // mutex locks ?
+- critical_section.h // mutex locks
 - platform_thread_types.cc
 - platform_thread_types.h // `c11 <threads.h> with other funcs`
 - system // compile macros
@@ -39,9 +39,9 @@
 - arraysize.h
 - numerics // safe_xxx conversion/min_max/...
 - scoped_refptr.h // reference pointer, in api ver. m88
-- // ref_counted_object.h // same? as scoped_refptr? 
-- // ref_counter.h
-- // ref_count.h
+- ref_counted_object.h // same? as scoped_refptr? 
+- ref_counter.h
+- ref_count.h
 - swap_queue // for signal processing
 - asm_defines.h // asm utils for signal processing
 - arch.h // basictypes.h
