@@ -1,6 +1,0 @@
-# do not trace build dirs
-*.d
-*.o
-*.so
-*.a
-*.elf
