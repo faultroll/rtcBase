@@ -124,6 +124,8 @@ extern "C" {
 // alway use xchg for flag
 #define ATOMIC_FLAG_TAS(_ptr) ATOMIC_VAR_XCHG((_ptr), true)
 #define ATOMIC_FLAG_CLR(_ptr) (void)ATOMIC_VAR_XCHG((_ptr), false)
+// should we put volatile here
+// #define VOLATILE_DEREF(_ptr) (*((volatile __typeof__(_ptr))(_ptr)))
 
 #if defined(__cplusplus)
 }

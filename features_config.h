@@ -23,18 +23,25 @@
     #undef _TIME_C_USE_WIN
     #undef _TIME_C_USE_NONE
 #else /* edit yourself */
+    // #include "../features_user_config.h" // not in this dir, for subtree/submodule
+    /**
+    * static declaration of 'aligned_alloc' follows non-static declaration
+    * |aligned_alloc| re-declare, so we use |_ALIGN_C_USE_STD| here
+    *
+    **/
     #if defined(WEBRTC_WIN)
         #define _ALIGN_C_USE_WIN
     #elif defined(WEBRTC_POSIX)
-        #define _ALIGN_C_USE_POSIX
+        #define _ALIGN_C_USE_STD
     #else
         #define _ALIGN_C_USE_NONE
     #endif // defined(WEBRTC_WIN)
     /**
     * std::unique_ptr is in <memory> which includes <shared_ptr_atomic.h>
-    * however, it only implements the atomic_flag and cannot use <stdatomics.h>
+    * however, it only implements the |atomic_flag| and cannot use <stdatomics.h>
+    * so we use |_ATOMIC_C_USE_POSIX| here
     *
-    */
+    **/
     #if defined(WEBRTC_WIN)
         #define _ATOMIC_C_USE_WIN
     #elif defined(WEBRTC_POSIX)
@@ -50,7 +57,7 @@
         #define _THREAD_C_USE_NONE
     #endif // defined(WEBRTC_WIN)
     /**
-    *  |timespec_get| re-declare, so we use <time.h> here
+    *  |timespec_get| re-declare, so we use |_TIME_C_USE_STD| here
     *
     **/
     #if defined(WEBRTC_WIN)
