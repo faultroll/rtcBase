@@ -518,7 +518,7 @@ static
 void WriteToFile(TraceHandle *handle,
                  const char* msg,
                  int length) {
-  if (!handle->ostream.file)
+  if (!handle->ostream.file || (fileno(handle->ostream.file) == -1)) // check if file is closed
     return;
 
   // if (handle->wrap_line_number > WEBRTC_TRACE_MAX_FILE_SIZE)
